@@ -1,0 +1,13 @@
+sudo apt install git
+
+sudo apt install python-matplotlib python-serial python-wxgtk3.0 python-wxtools python-lxml python-scipy python-opencv ccache gawk python-pip python-pexpect
+
+sudo pip install future pymavlink MAVProxy
+
+sudo apt-get install python-wstool python-rosinstall-generator python-catkin-tools
+
+sudo apt install python-rosdep python-rosinstall python-rosinstall-generator python-wstool build-essential
+
+sudo apt install ros-melodic-gazebo-ros ros-melodic-gazebo-plugins
+
+
