@@ -3,6 +3,7 @@ cd ~/ardupilot/ArduCopter/ && sim_vehicle.py -v ArduCopter -f gazebo-iris --cons
 roslaunch <package:iq_sim> <file.launch>
 roslaunch darknet_ros darknet_ros.launch
 
+gazebo --verbose ~/ardupilot_gazebo/worlds/iris_arducopter_runway.world
 
 rostopic list
 rostopic echo /gazebo/model_states
