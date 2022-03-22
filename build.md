@@ -2,9 +2,12 @@
 
 ## dependencies #1:
 ```
+sudo apt update
+sudo apt upgrade
 sudo apt install git
 sudo apt install python-matplotlib python-serial python-wxgtk3.0 python-wxtools python-lxml python-scipy python-opencv ccache gawk python-pip python-pexpect
 sudo pip install future pymavlink MAVProxy
+sudo apt install curl 
 ```
 ## install ardupilot:
 ```
@@ -17,12 +20,13 @@ git submodule update --init --recursive
 ## update ~/.bashrc #1:
 ```
 echo "export PATH=$PATH:$HOME/ardupilot/Tools/autotest" >> ~/.bashrc
-echo "PATH=/usr/lib/ccache:$PATH" >> ~/.bashrc
+echo "export PATH=/usr/lib/ccache:$PATH" >> ~/.bashrc
 source ~/.bashrc
 ```
 ## build vehicle simulator (sitl):
 ```
 cd ~/ardupilot/ArduCopter
+python -m pip install empy
 sim_vehicle.py -w
 ```
 ## install gazebo:
@@ -42,7 +46,6 @@ follow instructions on: http://wiki.ros.org/melodic/Installation/Ubuntu
 or
 ```
 sudo sh -c 'echo "deb http://packages.ros.org/ros/ubuntu $(lsb_release -sc) main" > /etc/apt/sources.list.d/ros-latest.list'
-sudo apt install curl # if you haven't already installed curl
 curl -s https://raw.githubusercontent.com/ros/rosdistro/master/ros.asc | sudo apt-key add -
 sudo apt update
 sudo apt install ros-melodic-desktop-full
@@ -57,7 +60,7 @@ source ~/.bashrc
 sudo apt install python-rosdep python-rosinstall python-rosinstall-generator python-wstool build-essential
 ```
 ## initialize rosdep:
-'''
+```
 sudo rosdep init
 rosdep update
 
@@ -102,7 +105,7 @@ catkin build
 echo "export GAZEBO_MODEL_PATH=/home/rico/catkin_ws/src/stalker/models" >> ~/.bashrc
 source ~/.bashrc
 ```
-## install yolo:
+## install yolo (optional):
 ```
 cd ~/catkin_ws/src
 git clone --recursive https://github.com/leggedrobotics/darknet_ros.git
