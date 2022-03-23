@@ -100,9 +100,14 @@ git clone https://github.com/AndreasMit/stalker
 cd ~/catkin_ws
 catkin build
 ```
+## get gazebo models(maybe needed):
+```
+cd ~
+git clone https://github.com/osrf/gazebo_models.git
+```
 ## update ~/.bashrc #5:
 ```
-echo "export GAZEBO_MODEL_PATH=/home/rico/catkin_ws/src/stalker/models" >> ~/.bashrc
+echo "export GAZEBO_MODEL_PATH=/home/rico/catkin_ws/src/stalker/models:/home/rico/gazebo_models" >> ~/.bashrc
 source ~/.bashrc
 ```
 ## install yolo (optional):
@@ -131,7 +136,6 @@ cmake ..
 make -j4
 sudo make install
 
-echo 'source /usr/share/gazebo/setup.sh' >> ~/.bashrc
 echo 'export GAZEBO_MODEL_PATH=~/ardupilot_gazebo/models' >> ~/.bashrc
 . ~/.bashrc
 
