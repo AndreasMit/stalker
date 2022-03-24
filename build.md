@@ -107,8 +107,19 @@ git clone https://github.com/osrf/gazebo_models.git
 ```
 ## update ~/.bashrc #5:
 ```
-echo "export GAZEBO_MODEL_PATH=/home/rico/catkin_ws/src/stalker/models:/home/rico/gazebo_models" >> ~/.bashrc
+echo "export GAZEBO_MODEL_PATH=~/catkin_ws/src/stalker/models:~/gazebo_models" >> ~/.bashrc
 source ~/.bashrc
+```
+## install Summit XL package to use in sim:
+```
+sudo apt-get install -y python3-vcstool
+cd ~/catkin_ws
+vcs import --input https://raw.githubusercontent.com/RobotnikAutomation/summit_xl_sim/melodic-devel/repos/summit_xl_sim_devel.repos
+rosdep install --from-paths src --ignore-src --skip-keys="summit_xl_robot_control marker_mapping robotnik_locator robotnik_pose_filter robotnik_gazebo_elevator" -y
+catkin build
+(optional)
+cp ~/catkin_ws/src/stalker/launch/summit.launch ~/catkin_ws/src/summit_xl_sim/summit_xl_sim_bringup/launch/summit.launch
+cp ~/catkin_ws/src/stalker/worlds/summit_arducopter.world ~/catkin_ws/src/summit_xl_sim/summit_xl_gazebo/worlds/summit_arducopter.world
 ```
 ## install yolo (optional):
 ```
@@ -124,22 +135,7 @@ edit darknet_ros.launch
 <arg name="network_param_file"         default="$(find darknet_ros)/config/yolov2-tiny.yaml"/>
 
 
-######  i dont think i need this ############
-cd ~
-git clone https://github.com/khancyr/ardupilot_gazebo.git
-cd ardupilot_gazebo
-git checkout dev
 
-mkdir build
-cd build
-cmake ..
-make -j4
-sudo make install
-
-echo 'export GAZEBO_MODEL_PATH=~/ardupilot_gazebo/models' >> ~/.bashrc
-. ~/.bashrc
-
-###############################	
 
 
 

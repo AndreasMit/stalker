@@ -5,12 +5,20 @@ roslaunch darknet_ros darknet_ros.launch
 
 gazebo --verbose ~/ardupilot_gazebo/worlds/iris_arducopter_runway.world
 
+roslaunch summit_xl_sim_bringup summit_xl_complete.launch
+
+# static contour:
+
+roslaunch stalker static_contour.launch
+
+# following
+
+roslaunch stalker summit.launch
+
+///
 rostopic list
 rostopic echo /gazebo/model_states
 rosmsg show nav_msgs/Odometry
-
-
-MAVROS is a middle man which translates the MAVlink messages into ROS messages, which are easy to use and common between different robot systems. To start mavros run
 
 roslaunch iq_sim apm.launch (set right address here so that you can get mavlink)
 roslaunch mavros apm.launch
