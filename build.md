@@ -117,9 +117,30 @@ cd ~/catkin_ws
 vcs import --input https://raw.githubusercontent.com/RobotnikAutomation/summit_xl_sim/melodic-devel/repos/summit_xl_sim_devel.repos
 rosdep install --from-paths src --ignore-src --skip-keys="summit_xl_robot_control marker_mapping robotnik_locator robotnik_pose_filter robotnik_gazebo_elevator" -y
 catkin build
-(optional)
+
+
+(optional delete later)
 cp ~/catkin_ws/src/stalker/launch/summit.launch ~/catkin_ws/src/summit_xl_sim/summit_xl_sim_bringup/launch/summit.launch
 cp ~/catkin_ws/src/stalker/worlds/summit_arducopter.world ~/catkin_ws/src/summit_xl_sim/summit_xl_gazebo/worlds/summit_arducopter.world
+```
+## make scritps executable + python3 environment:
+```
+cd ~/catkin_ws/src/stalker/scripts
+chmod +x RLVS.py
+
+pip3 install numpy
+pip3 install scipy matplotlib pillow
+pip3 install imutils h5py==2.10.0 requests progressbar2
+pip3 install cython
+pip3 install scikit-learn scikit-build scikit-image
+pip3 install opencv-contrib-python==4.4.0.46
+pip3 install tensorflow-gpu==1.14.0
+pip3 install keras==2.2.5
+pip3 install opencv-python==4.4.0.42
+pip3 install keras-segmentation
+pip3 install rospkg empy
+pip3 install gym
+pip3 install opencv-python-headless==4.1.2.30
 ```
 ## install yolo (optional):
 ```
@@ -133,7 +154,7 @@ edit darknet_ros/darknet_ros/config
 /camera/rgb/image_raw -> /camera/image_raw
 edit darknet_ros.launch
 <arg name="network_param_file"         default="$(find darknet_ros)/config/yolov2-tiny.yaml"/>
-
+roslaunch darknet_ros darknet_ros.launch
 
 
 

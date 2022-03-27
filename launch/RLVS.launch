@@ -1,0 +1,5 @@
+<launch>
+   <param name="rate" value="100"/>
+   <node name="controller" pkg="stalker" type="RLVS.py" output="screen" cwd="node" >
+   </node>
+</launch>
