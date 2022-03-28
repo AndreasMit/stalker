@@ -139,17 +139,11 @@ class Environment:
         # Initialize yaw to zero
         self.initial_pose()
 
-        # Reset to random initial positions
+        # Reset to initial positions
         self.x_initial = 0.0
         self.y_initial = 0.0
         self.z_initial = 0.0
         self.np_random, seed = seeding.np_random(None)
-
-        # Define target position
-        self.desired_pos = Point()
-        self.desired_pos.x = 2.0
-        self.desired_pos.y = 2.0
-        self.desired_pos.z = 6.0
 
         # Initialize variables
         self.timestep = 1
@@ -159,11 +153,12 @@ class Environment:
         self.action = np.zeros(num_actions)
         self.previous_action = np.zeros(num_actions)
         self.done = False
-        self.max_distance = 4.0
+        self.max_distance = 10.0
         self.max_timesteps = 512
         
-        # Define Subscriber
-        self.sub_cur_pos = rospy.Subscriber("/mavros/local_position/odom", Odometry, self.PoseCallback)         
+        # Define line taken from detector
+        self.desired_pos.z = 2
+        self.distance, self.angle = 0, 0
 
 
     def initial_pose(self):
@@ -222,8 +217,8 @@ class Environment:
     def go_to_start(self):
         # Initialize to random position
         if self.x_initial == 0.0:
-            reset_position =  self.np_random.uniform(low = self.desired_pos.x - self.max_distance + 1, high = self.desired_pos.x + self.max_distance -1, size=(2,))
-            reset_position_z =  self.np_random.uniform(low = self.desired_pos.z - self.max_distance + 1, high = self.desired_pos.z + self.max_distance -1, size=(1,)) 
+            reset_position =  self.np_random.uniform(low = -0.15, high = 0.15, size=(2,))
+            reset_position_z =  self.np_random.uniform(low = -0.15, high =  0.15, size=(1,)) 
 
             self.x_initial = reset_position[0]
             self.y_initial = reset_position[1]  
@@ -280,24 +275,11 @@ class Environment:
     def PoseCallback(self, msg):
 
         # Read Current Position
-        self.current_pos = msg
-        x_position = self.current_pos.pose.pose.position.x
-        y_position = self.current_pos.pose.pose.position.y
-        z_position = self.current_pos.pose.pose.position.z
+        self.distance, self.angle = Detector()
 
-        x_velocity = self.current_pos.twist.twist.linear.x 
-        y_velocity = self.current_pos.twist.twist.linear.y
-        z_velocity = self.current_pos.twist.twist.linear.z 
-
-        x_angular = self.current_pos.twist.twist.angular.x
-        y_angular = self.current_pos.twist.twist.angular.y
-
-        quat = self.current_pos.pose.pose.orientation
-        roll, pitch, yaw = self.quat2rpy(quat)
-
-        exceeded_x_limits = abs(x_position-self.desired_pos.x) > self.max_distance
-        exceeded_y_limits = abs(y_position-self.desired_pos.y) > self.max_distance
-        exceeded_z_limits = abs(z_position-self.desired_pos.z) > self.max_distance
+        exceeded_x_limits = abs(x_position) > self.max_distance
+        exceeded_y_limits = abs(y_position) > self.max_distance
+        exceeded_z_limits = abs(z_position) > self.max_distance
         exceeded_bounds = exceeded_x_limits or exceeded_y_limits or exceeded_z_limits
 
         # Check done signal which indicates whether s' is terminal. The episode is terminated when the quadrotor is out of bounds or after a max # of timesteps
@@ -322,42 +304,35 @@ class Environment:
                 print("Begin Episode %d" %self.current_episode)                 
         else:           
             # Compute the current state: position error, velocity and roll,pitch
-            self.current_state = np.array([self.desired_pos.x - x_position , self.desired_pos.y - y_position , self.desired_pos.z - z_position ,
-                                             x_velocity , y_velocity, z_velocity, roll, pitch, np.rad2deg(x_angular), np.rad2deg(y_angular), 
-                                             self.previous_action[0], self.previous_action[1], self.previous_action[2]])
-            # self.current_state = np.array([self.desired_pos.x - x_position , self.desired_pos.y - y_position , self.desired_pos.z - z_position , x_velocity , y_velocity, z_velocity, roll, pitch])
-
+            self.current_state = np.array([self.distance , self.angle , self.desired_pos.z - z_position ,
+                                             x_velocity , y_velocity, z_velocity, roll, pitch, yaw np.rad2deg(x_angular), np.rad2deg(y_angular), 
+                                             self.previous_action[0], self.previous_action[1], self.previous_action[2]], self.previous_action[3])
             # Compute reward from the 2nd timestep and after
             if self.timestep > 1:
 
                 # Compute Reward: use minus because we want to maximize reward
-                # position_error = math.sqrt(self.current_state[0]**2+self.current_state[1]**2 + self.current_state[2]**2)/self.max_distance
-                position_error = (abs(self.current_state[0])+abs(self.current_state[1]) + abs(self.current_state[2]))/self.max_distance
-                # position_error = ((self.current_state[0])**2+(self.current_state[1])**2 + (self.current_state[2])**2)/(self.max_distance**2)
+                position_error = abs(self.current_state[0])+abs(self.current_state[1]) + abs(self.current_state[2])
 
                 # Weight for position error 
                 weight_position = 1.6
 
                 # Oscillation suppression -> smooth output action
-                delta_roll = abs(self.action[0]-self.current_state[10])/angle_max # normalized -> max movement from previous to current action is 2 (e.g from -10 to 10)
-                delta_pitch = abs(self.action[1]-self.current_state[11])/angle_max
-                delta_zdot = abs(self.action[2]-self.current_state[12])/max_vel_up
+                delta_roll = abs(self.action[0]-self.current_state[11])/angle_max # normalized -> max movement from previous to current action is 2 (e.g from -10 to 10)
+                delta_pitch = abs(self.action[1]-self.current_state[12])/angle_max
+                delta_yaw = abs(self.action[2]-self.current_state[13])/angle_max
+                delta_zdot = abs(self.action[3]-self.current_state[14])/max_vel_up
                 # delta_action = math.sqrt(delta_roll**2 + delta_pitch**2 + delta_zdot**2)/2 # max movement is e.g from [-10,-10] to [10,10] -> delta roll, delta pitch = 20 [2 normalized]
-                delta_action = delta_roll + delta_pitch + delta_zdot
+                delta_action = delta_roll + delta_yaw + delta_zdot
                 # delta_action = delta_roll**2 + delta_pitch**2 + delta_zdot**2
 
 
                 weight_smoothness = 0.30
 
-                angular_velocity_error = (abs(self.current_state[8])+abs(self.current_state[9]))/angle_max
-                # angular_velocity_error = ((self.current_state[8])**2+(self.current_state[9])**2)/(angle_max**2)
-                weight_angular = 0.10
-
                 weight_action = 0.10/max(position_error,0.01)
-                action = abs(self.action[0])/angle_max + abs(self.action[1])/angle_max + abs(self.action[2])/max_vel_up
+                action = abs(self.action[0])/angle_max + abs(self.action[1])/angle_max + abs(self.action[2])/angle_max + abs(self.action[3])/max_vel_up
                 # action = (self.action[0])**2/angle_max + (self.action[1])**2/angle_max + (self.action[2])**2/max_vel_up
                 
-                self.reward = -weight_position*position_error - weight_smoothness*delta_action -weight_angular*angular_velocity_error
+                self.reward = -weight_position*position_error - weight_smoothness*delta_action
                 self.reward += -weight_action*action
 
                 sparse_reward = 0.0
@@ -399,19 +374,21 @@ class Environment:
             self.action = tf_action.numpy() + noise  # Add exploration strategy
             self.action[0] = np.clip(self.action[0], angle_min, angle_max)
             self.action[1] = np.clip(self.action[1], angle_min, angle_max)
-            self.action[2] = np.clip(self.action[2], max_vel_down, max_vel_up)
+            self.action[2] = np.clip(self.action[2], angle_min, angle_max)
+            self.action[3] = np.clip(self.action[3], max_vel_down, max_vel_up)
 
             if self.timestep%100 == 0:
                 print("Next action: ", tf_action.numpy())
                 print("Noise: ", noise)
                 print("Noisy action: ", self.action)
 
-            # Roll, Pitch in Degrees
-            roll_des = self.action[0] 
-            pitch_des = self.action[1]
+            # Roll, Pitch, Yaw in Degrees
+            roll_des = self.action[0]
+            pitch_des = self.action[1] 
+            yaw_des = self.action[2]
 
             # Vertical Desired velocity
-            zdot_des = self.action[2]
+            zdot_des = self.action[3]
 
             if zdot_des > 0 :
                 thrust = 0.5*zdot_des/2.5 + 0.5
@@ -421,8 +398,8 @@ class Environment:
             # Convert to mavros message and publish desired attitude
             action_mavros = AttitudeTarget()
             action_mavros.type_mask = 7
-            action_mavros.thrust = thrust # Altitude hold
-            action_mavros.orientation = self.rpy2quat(roll_des,pitch_des,0.0)
+            action_mavros.thrust = thrust #
+            action_mavros.orientation = self.rpy2quat(roll_des,pitch_des,yaw_des)
             self.pub_action.publish(action_mavros)
 
             self.previous_state = self.current_state
@@ -488,8 +465,8 @@ if __name__=='__main__':
     # can be accessed as numpy.ndarray`s through the numpy() method.
     tf.compat.v1.enable_eager_execution()
 
-    num_actions = 3 # commanded vertical velocity, roll and pitch
-    num_states = 10 + num_actions # x,y,z position error, x,y,z velocity, roll and pitch, angular velocity +++++ previous action
+    num_actions = 4 # commanded vertical velocity, roll and yaw
+    num_states = 11 + num_actions # x,y,z position error, x,y,z velocity, roll and pitch, angular velocity +++++ previous action
     # num_states = 8 # x,y,z position error, x,y,z velocity, roll and pitch
 
     angle_max = 10.0 

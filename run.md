@@ -37,7 +37,12 @@ general case:
 ```
 roslaunch <package> <file.launch>
 ```
-
+```
+rosrun image_view video_recorder image:=/iris_demo/ZED_stereocamera/camera/left/image_raw [image transport type]
+```
+```
+roslaunch mavros_extras teleop.launch teleop_args:=-vel
+```
 ///
 rostopic list
 rostopic echo /gazebo/model_states

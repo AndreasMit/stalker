@@ -18,9 +18,12 @@ git checkout Copter-4.2
 git submodule update --init --recursive
 ```
 ## update ~/.bashrc #1:
+copy these lines in ~/.bashrc:
 ```
-echo "export PATH=$PATH:$HOME/ardupilot/Tools/autotest" >> ~/.bashrc
-echo "export PATH=/usr/lib/ccache:$PATH" >> ~/.bashrc
+export PATH=$PATH:$HOME/ardupilot/Tools/autotest
+export PATH=/usr/lib/ccache:$PATH
+```
+```
 source ~/.bashrc
 ```
 ## build vehicle simulator (sitl):
