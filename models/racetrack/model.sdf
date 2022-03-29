@@ -1,0 +1,32 @@
+<?xml version="1.0" ?>
+<sdf version="1.6">
+
+  <model name='racetrack'>
+    <static>true</static>
+      <link name='racetrack'>
+        <pose frame=''>0 0 0 0 0 0</pose>
+          <collision name='racetrack'>
+            <geometry>
+              <mesh>
+                <uri>model://racetrack/racetrack.dae</uri>
+              </mesh>
+            </geometry>
+          </collision>
+          <visual name='racetrack'>
+          <cast_shadows>false</cast_shadows>
+            <geometry>
+              <mesh>
+                <scale>1 1 1</scale>
+                <uri>model://racetrack/racetrack.dae</uri>
+              </mesh>
+            </geometry>
+            <material>
+              <script>
+                <name>racetrack</name>
+                <uri>model://racetrack/racetrack.dae</uri>
+              </script>
+            </material>
+          </visual>
+        </link>
+    </model>
+  </sdf>
