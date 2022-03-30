@@ -15,7 +15,7 @@
   <arg name="physics" default="ode"/>
   <arg name="verbose" default="false"/>
   <arg name="output" default="screen"/>
-  <arg name="world_name" default="$(find stalker)/worlds/pavement.world"/> 
+  <arg name="world_name" default="$(find stalker)/worlds/racetrack.world"/> 
   
   <arg name="respawn_gazebo" default="false"/>
   <arg name="use_clock_frequency" default="false"/>
