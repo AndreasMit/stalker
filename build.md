@@ -145,6 +145,15 @@ pip3 install rospkg empy
 pip3 install gym
 pip3 install opencv-python-headless==4.1.2.30
 ```
+
+## image detection packages:
+```
+cd ~/catkin_ws/src
+git clone https://github.com/OTL/cv_camera.git
+git clone https://github.com/ros-perception/image_common.git
+git clone https://github.com/ros-perception/vision_opencv.git
+git clone https://github.com/amc-nu/RosImageFolderPublisher.git
+```
 ## install yolo (optional):
 ```
 cd ~/catkin_ws/src

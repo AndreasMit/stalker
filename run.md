@@ -41,6 +41,9 @@ roslaunch <package> <file.launch>
 rosrun image_view video_recorder image:=/iris_demo/ZED_stereocamera/camera/left/image_raw [image transport type]
 ```
 ```
+rosrun image_view video_recorder image:=/iris_demo/ZED_stereocamera/camera/left/image_raw _filename:='b7588637-aae8-4803-a9c3-edf4bcea43b6/try.avi'
+```
+```
 roslaunch mavros_extras teleop.launch teleop_args:=-vel
 ```
 ///
