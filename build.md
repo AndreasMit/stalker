@@ -66,7 +66,6 @@ sudo apt install python-rosdep python-rosinstall python-rosinstall-generator pyt
 ```
 sudo rosdep init
 rosdep update
-
 ```
 ## install dependencies #3:
 ```
@@ -120,17 +119,49 @@ cd ~/catkin_ws
 vcs import --input https://raw.githubusercontent.com/RobotnikAutomation/summit_xl_sim/melodic-devel/repos/summit_xl_sim_devel.repos
 rosdep install --from-paths src --ignore-src --skip-keys="summit_xl_robot_control marker_mapping robotnik_locator robotnik_pose_filter robotnik_gazebo_elevator" -y
 catkin build
-
-
-(optional delete later)
-cp ~/catkin_ws/src/stalker/launch/summit.launch ~/catkin_ws/src/summit_xl_sim/summit_xl_sim_bringup/launch/summit.launch
-cp ~/catkin_ws/src/stalker/worlds/summit_arducopter.world ~/catkin_ws/src/summit_xl_sim/summit_xl_gazebo/worlds/summit_arducopter.world
 ```
-## make scritps executable + python3 environment:
+
+# Scripts and python environments
+
+## install conda and create virtual environments for training NN:
+follow instructions: https://docs.anaconda.com/anaconda/install/linux/
+create an enviroment named 'aerials':
+```
+conda create -n aerials tensorflow-gpu=1.14 cudatoolkit=10.0 python=3.6
+```
+to start virtual environment:
+```
+conda activate aerials-env
+```
+install python dependencies:
+```
+conda install -c conda-forge keras=2.2.5
+pip install keras-segmentation
+pip install numpy
+pip install scipy matplotlib pillow
+pip install imutils h5py==2.10.0 requests progressbar2
+pip install cython
+pip install scikit-learn scikit-build scikit-image
+pip install opencv-contrib-python==4.4.0.46
+pip install tensorflow-gpu==1.14.0
+pip install keras==2.2.5
+pip install opencv-python==4.4.0.42
+pip install keras-segmentation
+pip install rospkg empy
+```
+to stop virtual environment:
+```
+conda deactivate
+```
+## make scritps executable:
 ```
 cd ~/catkin_ws/src/stalker/scripts
 chmod +x RLVS.py
+```
 
+base of anaconda doesnt have the following. i could deactivate the base.
+## python3 dependencies:
+```
 pip3 install numpy
 pip3 install scipy matplotlib pillow
 pip3 install imutils h5py==2.10.0 requests progressbar2
@@ -145,36 +176,30 @@ pip3 install rospkg empy
 pip3 install gym
 pip3 install opencv-python-headless==4.1.2.30
 ```
-
+## install dependencies #4 (for opencv): not working
+```
+sudo apt-get install ros-melodic-cv-bridge
+sudo apt-get install ros-melodic-vision-opencv
+```
 ## image detection packages:
+you need the package cv_bridge to convert sensor_msgs/Image of ROS to opevCV format: http://wiki.ros.org/vision_opencv
 ```
 cd ~/catkin_ws/src
 git clone https://github.com/OTL/cv_camera.git
 git clone https://github.com/ros-perception/image_common.git
-git clone https://github.com/ros-perception/vision_opencv.git
+git clone https://github.com/ros-perception/vision_opencv.git # only this is need for now
 git clone https://github.com/amc-nu/RosImageFolderPublisher.git
 ```
-## install yolo (optional):
+->> not working
+Comment out line #11 so that you avoid build error.
+Also dependencies added in CMakeLists.txt (no action required)
+
+## ecatkin workspace for python scripts (from csl folder):
+Get ecatkin_ws with the above 4 packages and make with the command below:
 ```
-cd ~/catkin_ws/src
-git clone --recursive https://github.com/leggedrobotics/darknet_ros.git
-catkin build -DCMAKE_BUILD_TYPE=Release 
-//-DCMAKE_C_COMPILER=/usr/bin/gcc-6
+catkin_make -DPYTHON_EXECUTABLE=/usr/bin/python3 -DPYTHON_INCLUDE_DIR=/usr/include/python3.6 -DPYTHON_LIBRARY=/usr/lib/x86_64-linux-gnu/libpython3.6m.so
 ```
-
-edit darknet_ros/darknet_ros/config
-/camera/rgb/image_raw -> /camera/image_raw
-edit darknet_ros.launch
-<arg name="network_param_file"         default="$(find darknet_ros)/config/yolov2-tiny.yaml"/>
-roslaunch darknet_ros darknet_ros.launch
-
-
-
-
-
-
-
-
-
-
-
+This command magically installs all the packages that the packages in your catkin workspace depend upon but are missing on your computer:
+```
+rosdep install --from-paths src --ignore-src -r -y :
+```

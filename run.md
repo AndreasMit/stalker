@@ -24,6 +24,13 @@ or
 ```
 rosrun stalker RLVS.py
 ```
+## run detection scripts:
+```
+conda activate aerials-env
+cd ~/ecatkin_ws
+source devel/setup.bash
+rosrun img_seg_cnn detect_line.py
+```
 ## extra (for reference):
 start gazebo alone:
 ```
@@ -38,13 +45,15 @@ general case:
 roslaunch <package> <file.launch>
 ```
 ```
-rosrun image_view video_recorder image:=/iris_demo/ZED_stereocamera/camera/left/image_raw [image transport type]
+rosrun image_view video_recorder image:=/iris_demo/ZED_stereocamera/camera/left/image_raw _filename:='video.avi'
+rosrun image_view image_view image:=/iris_demo/ZED_stereocamera/camera/left/image_raw
 ```
 ```
 rosrun image_view video_recorder image:=/iris_demo/ZED_stereocamera/camera/left/image_raw _filename:='b7588637-aae8-4803-a9c3-edf4bcea43b6/try.avi'
 ```
+to use your controller: 
 ```
-roslaunch mavros_extras teleop.launch teleop_args:=-vel
+roslaunch stalker teleop.launch teleop_args:=-vel
 ```
 ///
 rostopic list
@@ -52,17 +61,11 @@ rostopic echo /gazebo/model_states
 rosmsg show nav_msgs/Odometry
 
 #publish to :
-/mavros/setpoint_raw/local
-/mavros/setpoint_raw/attitude
+/mavros/setpoint_raw/local : to set position target
+/mavros/setpoint_raw/attitude : to set attitude target
 
 #subscribe to :
-/iris_demo/ZED_stereocamera/camera/left/image_raw
-
-
-where to pubish attitude commands:
-setpoint_attitude/attitude 
-mavlink:
-SET_ATTITUDE_TARGET 
+/iris_demo/ZED_stereocamera/camera/left/image_raw : to get image
 
 
 
