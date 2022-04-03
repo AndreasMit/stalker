@@ -153,6 +153,10 @@ to stop virtual environment:
 ```
 conda deactivate
 ```
+also deactivate base environment:
+```
+conda config --set auto_activate_base False
+```
 ## make scritps executable:
 ```
 cd ~/catkin_ws/src/stalker/scripts
