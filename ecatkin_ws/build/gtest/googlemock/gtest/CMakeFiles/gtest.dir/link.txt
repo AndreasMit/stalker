@@ -1,1 +1,0 @@
-/usr/lib/ccache/g++ -fPIC -DBOOST_MATH_DISABLE_FLOAT128 -fPIC -Wl,-rpath,/lib -L/lib -shared -Wl,-soname,libgtest.so -o libgtest.so CMakeFiles/gtest.dir/src/gtest-all.cc.o  -L/home/rico/ecatkin_ws/build/gtest/googlemock/gtest/src -Wl,-rpath,/home/rico/ecatkin_ws/build/gtest/googlemock/gtest/src -lpthread 

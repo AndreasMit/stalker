@@ -1,8 +1,0 @@
-prefix=/home/rico/ecatkin_ws/install
-
-Name: img_seg_cnn
-Description: Description of img_seg_cnn
-Version: 0.0.0
-Cflags: 
-Libs: -L${prefix}/lib 
-Requires: cv_bridge geometry_msgs rospy sensor_msgs std_msgs message_runtime message_generation
