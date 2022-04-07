@@ -1,4 +1,4 @@
-    lines = np.array(4)
+    lines = np.zeros(4)
     lines[0] = np.linalg.norm(box[0] - box[1])
     lines[1] = np.linalg.norm(box[1] - box[2])
     lines[2] = np.linalg.norm(box[2] - box[3])

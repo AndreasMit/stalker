@@ -15,6 +15,7 @@ class line_detector:
     self.box_pub = rospy.Publisher("/box", PREDdata , queue_size=10)
     self.image_sub = rospy.Subscriber("/iris_demo/ZED_stereocamera/camera/left/image_raw",Image,self.callback) 
     self.bridge = CvBridge()
+    self.box = PREDdata()
     # self.angle_prev = 0
 
   def callback(self,data):
@@ -23,7 +24,7 @@ class line_detector:
     except CvBridgeError as e:
       print(e)
 
-    (rows,cols,channels) = image.shape
+    # (rows,cols,channels) = image.shape
     # center = (int(cols/2-1),int(rows/2-1)) # center of the image
 
     image_hsv = cv.cvtColor(image, cv.COLOR_BGR2HSV)
@@ -44,6 +45,7 @@ class line_detector:
       index = np.argmax(areas)
       area = areas[index]
       if area <200000: #we want appropriate altitude to detect path thats why we check area
+        #maybe also check area>200
         box = cv.minAreaRect(contours[index])
         # center_box, (width, height), angle = box
         box = cv.boxPoints(box)
@@ -53,12 +55,12 @@ class line_detector:
     
         cv.imshow("box", image)
 
-        data = PREDdata()
-        data.box_1 = box[0]
-        data.box_2 = box[1]
-        data.box_3 = box[2]
-        data.box_4 = box[3]
-        self.box_pub.publish(data)
+        
+        self.box.box_1 = box[0][:]
+        self.box.box_2 = box[1][:]
+        self.box.box_3 = box[2][:]
+        self.box.box_4 = box[3][:]
+        
         cv.waitKey(3)
         # cv.imwrite('ol.jpg', image)
         # print(image)
@@ -77,7 +79,14 @@ class line_detector:
 
     else:
       print('out of bounds')
-    
+      self.box.box_1 = 0
+      self.box.box_2 = 0
+      self.box.box_3 = 0
+      self.box.box_4 = 0
+
+    #publish the predicted data, send 0 if no valid detection
+    self.box_pub.publish(self.box)
+
     # try:
     #   self.image_pub.publish(self.bridge.cv2_to_imgmsg(image, "bgr8"))
     # except CvBridgeError as e:
