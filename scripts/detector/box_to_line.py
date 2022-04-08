@@ -4,7 +4,7 @@ import rospy
 import numpy as np
 from sensor_msgs.msg import Image
 from color_detector.msg import PREDdata
-from color_detector.msg import Line
+# from color_detector.msg import Line
 from nav_msgs.msg import Odometry
 from math import *
 
@@ -13,32 +13,48 @@ class line_detector:
 	def __init__(self):
 		self.box_sub = rospy.Subscriber("/box", PREDdata ,self.box_callback)
 		self.att_sub = rospy.Subscriber("/mavros/local_position/odom", Odometry,self.attitude_callback)
-		self.line_pub = rospy.Publisher("/line_detector", Line, queue_size=10)
+		# self.line_pub = rospy.Publisher("/line_detector", Line, queue_size=10)
 		# self.image_bub = rospy.Publisher("/RotDetection", Image, queue_size=10)
 		self.phi = 0
 		self.theta = 0
 		self.x_velocity = 0
+		self.cu = 360.5
+		self.cv = 240.5
+		self.ax = 252.075
+		self.ay = 252.075 
+		self.Z = 4.0
 
 	def box_callback(self,box):
+		if all(box)==0 :
+			print('shit')
+			return 
+		mp = [ 	box[0][0], box[0][1], self.Z,
+		 		box[1][0], box[1][1], self.Z,
+		 		box[2][0], box[2][1], self.Z, 
+		 		box[3][0], box[3][1], self.Z ]
 		mp_cartesian = self.cartesian_from_pixel(mp, self.cu, self.cv, self.ax, self.ay)
 		mp_cartesian_v = self.featuresTransformation(mp_cartesian, self.phi, self.theta)
 		mp_pixel_v = self.pixels_from_cartesian(mp_cartesian_v, self.cu, self.cv, self.ax, self.ay)
 
-		box = mp_pixel_v #edit
+		virtual_box = [ [mp_pixel_v[0],mp_pixel_v[1] ],
+						[mp_pixel_v[3],mp_pixel_v[4] ],
+						[mp_pixel_v[6],mp_pixel_v[7] ],
+						[mp_pixel_v[9],mp_pixel_v[10]] ]
+
 		lines = np.zeros(4)
-    	lines[0] = np.linalg.norm(box[0] - box[1])
-    	lines[1] = np.linalg.norm(box[1] - box[2])
-    	lines[2] = np.linalg.norm(box[2] - box[3])
-    	lines[3] = np.linalg.norm(box[3] - box[0])
+    	lines[0] = np.linalg.norm(virtual_box[0] - virtual_box[1])
+    	lines[1] = np.linalg.norm(virtual_box[1] - virtual_box[2])
+    	lines[2] = np.linalg.norm(virtual_box[2] - virtual_box[3])
+    	lines[3] = np.linalg.norm(virtual_box[3] - virtual_box[0])
     	long_line = np.argmax(lines) # we assume that the long line is always the one we want to follow 
-    	angle = np.arctan2(box[long_line], box[(long_line+1)%4]) #returns [-pi,pi] , i want -pi/2 to pi/2 
+    	angle = np.arctan2(virtual_box[long_line], virtual_box[(long_line+1)%4]) #returns [-pi,pi] , i want -pi/2 to pi/2 
     	angle = abs(angle) # [0,pi] 
     	angle -+ pi/2 # [-pi/2 , pi/2]
     	# cv.line(image, box[long_line], box[(long_line+1)%4], (0, 255, 0), 1)
     	angle += offset #adjust to your needs
 
-    	box_center_x = (box[0][0]+box[2][0])//2 #center of diagonal
-    	box_center_y = (box[0][1]+box[2][1])//2 
+    	box_center_x = (virtual_box[0][0]+virtual_box[2][0])//2 #center of diagonal
+    	box_center_y = (virtual_box[0][1]+virtual_box[2][1])//2 
     	box_center = [box_center_x, box_center_y]
     	center = [480/2-1, 720/2-1]
     	distance = np.linalg.norm(np.array(center)-np.array(center_box))
@@ -47,7 +63,6 @@ class line_detector:
 
 	def attitude_callback(self, msg):
         self.x_velocity = msg.twist.twist.linear.x 
-        print(self.x_velocity)
 		quat = msg.pose.pose.orientation
 		roll, pitch, yaw = self.quat2rpy(quat)
 		self.phi = roll # roll -> phi
