@@ -38,9 +38,9 @@ class box_detector:
       box = cv.boxPoints(box)
       box = np.int0(box)
       cv.drawContours(image, [box], 0, (0, 0, 255), 1)
-      cv.imshow("box", image)
-      cv.waitKey(3)
-        
+      # cv.imshow("box", image)
+      # cv.waitKey(30)
+      
       self.box.box_1 = box[0][:]
       self.box.box_2 = box[1][:]
       self.box.box_3 = box[2][:]
@@ -48,19 +48,19 @@ class box_detector:
 
     else:
       print('out of bounds')
-      self.box.box_1 = 0
-      self.box.box_2 = 0
-      self.box.box_3 = 0
-      self.box.box_4 = 0
+      self.box.box_1 = [0,0]
+      self.box.box_2 = [0,0]
+      self.box.box_3 = [0,0]
+      self.box.box_4 = [0,0]
 
     #publish the predicted data, send 0 if no valid detection
     self.box_pub.publish(self.box)
     # print(self.box)
 
-    # try:
-    #   self.image_pub.publish(self.bridge.cv2_to_imgmsg(image, "bgr8"))
-    # except CvBridgeError as e:
-    #   print(e)
+    try:
+      self.image_pub.publish(self.bridge.cv2_to_imgmsg(image, "bgr8"))
+    except CvBridgeError as e:
+      print(e)
 
 
 if __name__ == '__main__':
@@ -71,4 +71,4 @@ if __name__ == '__main__':
     rospy.spin()
   except KeyboardInterrupt:
     print("Shutting down")
-  cv.destroyAllWindows()
+  # cv.destroyAllWindows()
