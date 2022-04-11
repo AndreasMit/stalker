@@ -141,12 +141,13 @@ class Environment:
         self.x_initial = 0.0
         self.y_initial = 0.0
         self.z_initial = 0.0
+        self.yaw_initial = 0.0
 
         #initialize current position
         self.x_position = 0.0
         self.y_position = 0.0
         self.z_position= 4.0
-        self.x_velocity = 0.0
+        self.x_velocity = 0.1
         self.y_velocity = 0.0
         self.z_velocity = 0.0 
         self.x_angular = 0.0
@@ -175,7 +176,7 @@ class Environment:
         
         # Define line taken from detector
         self.box = PREDdata()
-        self.desired_pos_z = 4.0
+        self.desired_pos_z = 3.0
         self.desired_vel_x = 0.1
         self.distance, self.angle = 0, 0
 
@@ -242,7 +243,7 @@ class Environment:
         position_reset.position.x = self.x_initial
         position_reset.position.y = self.y_initial
         position_reset.position.z = self.z_initial
-        position_reset.yaw = 0.0
+        position_reset.yaw = self.yaw_initial
         self.pub_pos.publish(position_reset) 
 
     def reset(self):
@@ -312,6 +313,7 @@ class Environment:
                 self.x_initial = self.x_position
                 self.y_initial = self.y_position
                 self.z_initial = self.z_position
+                self.yaw_initial = self.yaw
 
         # Check done signal which indicates whether s' is terminal. The episode is terminated when the quadrotor is out of bounds or after a max # of timesteps
         if exceeded_bounds and not self.done : # Bounds around desired position

@@ -26,7 +26,7 @@ class line_detector:
 		self.cv = 240.5
 		self.ax = 252.075
 		self.ay = 252.075 
-		self.Z = 4
+		self.Z = 3
 		self.virtual_box = np.array([[0, 0], [0,0], [0,0], [0,0]])
 		self.line = 0
 		self.bridge = CvBridge()
@@ -86,8 +86,8 @@ class line_detector:
 		except CvBridgeError as e:
 			print(e)
 		cv.drawContours(image, [self.virtual_box], 0, (0, 0, 255), 1)
-		cv.line(image, self.virtual_box[self.line], self.virtual_box[(self.line+1)%4], (0, 255, 0), 1)
-		cv.line(image, self.center, [self.box_center[0], self.center[1]], (255, 0, 0), 1)
+		cv.line(image, tuple(self.virtual_box[self.line]), tuple(self.virtual_box[(self.line+1)%4]), (0, 255, 0), 1)
+		cv.line(image, tuple(self.center), (self.box_center[0], self.center[1]), (255, 0, 0), 1)
 		try:
 			self.image_pub.publish(self.bridge.cv2_to_imgmsg(image, "bgr8"))
 		except CvBridgeError as e:
@@ -95,17 +95,16 @@ class line_detector:
 
 	def attitude_callback(self, msg):
 		self.x_velocity = msg.twist.twist.linear.x 
-		# print(self.x_velocity)
+		self.z_position = msg.pose.pose.position.z
 		quat = msg.pose.pose.orientation
 		roll, pitch, yaw = self.quat2rpy(quat)
-		roll, pitch, yaw = roll, pitch, yaw
-		self.phi = roll # roll -> phi
-		self.theta = pitch # pitch -> theta
-		print(self.x_velocity, roll, pitch)
+		# self.phi = roll # roll -> phi
+		# self.theta = pitch # pitch -> theta
+		self.phi = pitch 
+		self.theta = roll 
+		print(self.x_velocity, roll, pitch , self.z_position)
 
-
-
-
+		#phi and theta need to be in rads
 	def featuresTransformation(self, mp, phi, theta):       
 		Rphi = np.array([[1.0, 0.0, 0.0],[0.0, cos(phi), -sin(phi)],[0.0, sin(phi), cos(phi)]]).reshape(3,3)
 		Rtheta = np.array([[cos(theta), 0.0, sin(theta)],[0.0, 1.0, 0.0],[-sin(theta), 0.0, cos(theta)]]).reshape(3,3)
@@ -170,9 +169,9 @@ class line_detector:
 		cosy_cosp = 1 - 2*(quat.y*quat.y + quat.z*quat.z)
 		yaw = math.atan2(siny_cosp,cosy_cosp)
 
-		roll = np.rad2deg(roll)
-		pitch = np.rad2deg(pitch)
-		yaw = np.rad2deg(yaw)  
+		# roll = np.rad2deg(roll)
+		# pitch = np.rad2deg(pitch)
+		# yaw = np.rad2deg(yaw)  
 
 		return roll, pitch, yaw   
 

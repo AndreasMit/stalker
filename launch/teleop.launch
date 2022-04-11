@@ -11,6 +11,6 @@
 	</node>
 
 	<node pkg="mavros_extras" type="mavteleop" name="mavteleop" args="$(arg teleop_args)" required="True" output="screen">
-		<rosparam command="load" file="$(find mavros_extras)/launch/tx12.yaml" />
+		<rosparam command="load" file="$(find stalker)/launch/tx12.yaml" />
 	</node>
 </launch>
