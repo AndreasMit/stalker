@@ -17,18 +17,26 @@ class Move:
 		self.pub_action = rospy.Publisher("/mavros/setpoint_raw/attitude", AttitudeTarget, queue_size=10000)
 		self.sub_position = rospy.Subscriber("/mavros/local_position/odom", Odometry, self.move)
 		self.count = 0
+
 	def move(self, direction):
-		if self.count <=10:
-			print('lets yaw')
-			roll_des = 0
-			pitch_des = 0
-			yaw_des = 1
-			action_mavros = AttitudeTarget()
-			action_mavros.type_mask = 7
-			action_mavros.thrust = 0.5
-			action_mavros.orientation = self.rpy2quat(roll_des,pitch_des,yaw_des)
-			self.pub_action.publish(action_mavros)
-			self.count = self.count+1
+		roll_des = 0.0
+		pitch_des = 0.0
+		yaw_des = 90.0
+		#roll and pitch work just fine
+		if self.count ==20:
+			print('right')
+			roll_des = 5.0 
+		if self.count ==40:
+			print('left')
+			roll_des = -7.0
+
+		action_mavros = AttitudeTarget()
+		action_mavros.type_mask = 7
+		action_mavros.thrust = 0.5
+		action_mavros.orientation = self.rpy2quat(roll_des,pitch_des,yaw_des)
+		self.pub_action.publish(action_mavros)
+		self.count = self.count+1
+
 
 	def rpy2quat(self,roll,pitch,yaw):
 		

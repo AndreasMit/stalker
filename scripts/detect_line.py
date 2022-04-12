@@ -53,7 +53,7 @@ class line_detector:
         cv.drawContours(image, [box], 0, (0, 0, 255), 1)
         # cv.line(image, (int(center_box[0]),int(center_box[1])), center, (255, 0, 0), 2)
     
-        cv.imshow("box", image)
+        # cv.imshow("box", image)
 
         
         self.box.box_1 = box[0][:]
@@ -61,7 +61,7 @@ class line_detector:
         self.box.box_3 = box[2][:]
         self.box.box_4 = box[3][:]
         
-        cv.waitKey(3)
+        # cv.waitKey(3)
         # cv.imwrite('ol.jpg', image)
         # print(image)
         # distance = np.linalg.norm(np.array(center)-np.array(center_box))
@@ -87,10 +87,10 @@ class line_detector:
     #publish the predicted data, send 0 if no valid detection
     self.box_pub.publish(self.box)
 
-    # try:
-    #   self.image_pub.publish(self.bridge.cv2_to_imgmsg(image, "bgr8"))
-    # except CvBridgeError as e:
-    #   print(e)
+    try:
+      self.image_pub.publish(self.bridge.cv2_to_imgmsg(image, "bgr8"))
+    except CvBridgeError as e:
+      print(e)
 
 
 if __name__ == '__main__':

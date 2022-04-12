@@ -47,7 +47,7 @@ class box_detector:
       self.box.box_4 = box[3][:]
 
     else:
-      print('out of bounds')
+      # print('out of bounds')
       self.box.box_1 = [0,0]
       self.box.box_2 = [0,0]
       self.box.box_3 = [0,0]

@@ -179,6 +179,7 @@ pip3 install keras-segmentation
 pip3 install rospkg empy
 pip3 install gym
 pip3 install opencv-python-headless==4.1.2.30
+pip3 install 'gast==0.2.2'
 ```
 ## install dependencies #4 (for opencv): not working
 ```

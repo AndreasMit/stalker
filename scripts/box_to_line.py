@@ -70,14 +70,14 @@ class line_detector:
 				angle = np.degrees(angle)
 			else:
 				angle = 90
-
+			#90 is the best , 0 is the worst angle , good angle [-70,70], maybe change that later
 			box_center_x = (self.virtual_box[0][0]+self.virtual_box[2][0])//2 #center of diagonal
 			box_center_y = (self.virtual_box[0][1]+self.virtual_box[2][1])//2 
 			self.box_center = [box_center_x, box_center_y]
 			
 			# distance = np.linalg.norm(np.array(self.center)-np.array(self.box_center))
 			distance_y = self.center[0]-self.box_center[0]
-			# print(distance_y)
+			print(distance_y)
 			# print(distance_y, angle)
 
 	def image_callback(self,msg):
@@ -97,12 +97,13 @@ class line_detector:
 		self.x_velocity = msg.twist.twist.linear.x 
 		self.z_position = msg.pose.pose.position.z
 		quat = msg.pose.pose.orientation
-		roll, pitch, yaw = self.quat2rpy(quat)
+		#roll pitch yaw are returned correct -> phi and theta maybe was the problem
+		roll, pitch, yaw = self.quat2rpy(quat) #return angles in rads
 		# self.phi = roll # roll -> phi
 		# self.theta = pitch # pitch -> theta
 		self.phi = pitch 
 		self.theta = roll 
-		print(self.x_velocity, roll, pitch , self.z_position)
+		# print(self.x_velocity, np.rad2deg(roll), np.rad2deg(pitch) , self.z_position)
 
 		#phi and theta need to be in rads
 	def featuresTransformation(self, mp, phi, theta):       
