@@ -156,11 +156,13 @@ class Environment:
         self.y_angular = 0.0
         self.roll = 0.0
         self.pitch = 0.0
-        self.yaw = 0.0
+        self.yaw = 90.0
 
         # define good limits
         self.good_angle = 10
         self.good_distance = 50 #define it
+        self.exceeded_bounds = False
+        self.to_start = False
 
         # Initialize variables
         self.timestep = 1
@@ -189,7 +191,7 @@ class Environment:
         action_mavros = AttitudeTarget()
         action_mavros.type_mask = 7
         action_mavros.thrust = 0.5 # Altitude hold
-        action_mavros.orientation = self.rpy2quat(0.0,0.0,0.0) # 0 yaw
+        action_mavros.orientation = self.rpy2quat(0.0,0.0,90.0) # 90 yaw
         self.pub_action.publish(action_mavros)
 
 
@@ -241,6 +243,7 @@ class Environment:
     def go_to_start(self):
         #go to the last point when you had a good detection
         #that point is stored in x/y/z initial
+        # print('going to start')
         position_reset = PositionTarget()
         position_reset.type_mask = 2496
         position_reset.coordinate_frame = 1
@@ -286,7 +289,9 @@ class Environment:
         self.episodic_reward = 0.0
         self.current_episode += 1
         self.timestep = 1
-        self.done = False    
+        self.done = False
+        self.exceeded_bounds = False  
+        self.to_start  = False 
 
     def PoseCallback(self,msg):
         self.position = msg
@@ -310,18 +315,19 @@ class Environment:
         self.box = msg
         self.distance , self.angle = self.Line.compute(self.box, self.roll, self.pitch, self.z_position)
         # print(self.distance, self.angle, self.z_position)
-        exceeded_bounds = False
+        print(self.yaw)
         if self.distance == 10000 and self.angle == 0 :
-            exceeded_bounds = True
-        elif ( self.distance < self.good_distance and abs(self.angle) < self.good_angle):
-            print(self.distance, self.angle)
+            self.exceeded_bounds = True
+        elif abs(self.distance) < self.good_distance and abs(self.angle) < self.good_angle and self.angle!=0:
+            print('good position')
+            # print(self.distance, self.angle)
             self.x_initial = self.x_position
             self.y_initial = self.y_position
             self.z_initial = self.z_position
             self.yaw_initial = self.yaw
 
         # Check done signal which indicates whether s' is terminal. The episode is terminated when the quadrotor is out of bounds or after a max # of timesteps
-        if exceeded_bounds and not self.done : # Bounds around desired position
+        if self.exceeded_bounds and not self.done : # Bounds around desired position
             print("Exceeded Bounds --> Return to initial position")
             self.done = True 
         elif self.timestep > self.max_timesteps and not self.done:
@@ -330,12 +336,23 @@ class Environment:
 
         if self.done:
             # instead go to last frame that had detection
-            self.go_to_start()
+            if not self.to_start:
+                self.go_to_start()
             # When reach the inital position, begin next episode    
-            if abs(self.x_position-self.x_initial)<0.05 and abs(self.y_position-self.y_initial)<0.05 and abs(self.z_position-self.z_initial)<0.05:
-                self.reset()                 
-                print("Reset")                   
-                print("Begin Episode %d" %self.current_episode)                 
+            if abs(self.x_position-self.x_initial)<0.2 and abs(self.y_position-self.y_initial)<0.2 and abs(self.z_position-self.z_initial)<0.2 :
+                self.to_start = True
+                print('setting yaw')
+                action_mavros = AttitudeTarget()
+                action_mavros.type_mask = 7
+                action_mavros.thrust = 0.5 # Altitude hold
+                action_mavros.orientation = self.rpy2quat(0.0,0.0,self.yaw_initial) 
+                self.pub_action.publish(action_mavros)
+                if abs(self.yaw - self.yaw_initial)<10 :
+                    self.reset()                 
+                    print("Reset")                   
+                    print("Begin Episode %d" %self.current_episode)  
+            else:
+                self.to_start = False               
         else:           
             # Compute the current state
             #STATE
@@ -356,11 +373,11 @@ class Environment:
                 # Oscillation suppression -> smooth output action
                 delta_roll = abs(self.action[0]-self.current_state[3])/angle_max # normalized -> max movement from previous to current action is 2 (e.g from -10 to 10)
                 delta_pitch = abs(self.action[1]-self.current_state[4])/angle_max
-                delta_yaw = abs(self.action[2]-self.current_state[5])/angle_max
+                delta_yaw = abs(self.action[2]-(self.current_state[5]-90))/yaw_max #[-90,90] action but i publish it with +90 -> [-180,180]
                 delta_action = delta_roll + delta_pitch + delta_yaw     
                 weight_smoothness = 0.30
         
-                action = abs(self.action[0])/angle_max + abs(self.action[1])/angle_max + abs(self.action[2])/angle_max
+                action = abs(self.action[0])/angle_max + abs(self.action[1])/angle_max + abs(self.action[2])/yaw_max
                 weight_action = 0.10/max(position_error,0.01)
 
                 velocity_error = abs(self.current_state[2])/max_velocity
@@ -402,7 +419,7 @@ class Environment:
             self.action = tf_action.numpy() + noise  # Add exploration strategy
             self.action[0] = np.clip(self.action[0], angle_min, angle_max)
             self.action[1] = np.clip(self.action[1], angle_min, angle_max)
-            self.action[2] = np.clip(self.action[2], angle_min, angle_max)
+            self.action[2] = np.clip(self.action[2], yaw_min, yaw_max)
 
             if self.timestep%100 == 0:
                 print("Next action: ", tf_action.numpy())
@@ -412,7 +429,8 @@ class Environment:
             # Roll, Pitch, Yaw in Degrees
             roll_des = self.action[0]
             pitch_des = self.action[1] 
-            yaw_des = self.action[2]
+            yaw_des = self.action[2] + 90
+            # print(yaw_des)
 
             # Convert to mavros message and publish desired attitude
             action_mavros = AttitudeTarget()
@@ -446,7 +464,7 @@ def get_actor():
     outputs = layers.Dense(num_actions, activation="tanh", kernel_initializer=last_init)(h2)
 
     # Output of tanh is [-1,1] so multiply with the upper control action
-    outputs = outputs * [angle_max, angle_max, angle_max]
+    outputs = outputs * [angle_max, angle_max, yaw_max]
         
     model = tf.keras.Model(inputs, outputs)
 
@@ -490,6 +508,8 @@ if __name__=='__main__':
 
     angle_max = 2.0 
     angle_min = -2.0 # constraints for commanded roll and pitch
+    yaw_max = 90
+    yaw_min = -90
 
     max_vel_up = 1.5 # Real one is 2.5
     max_vel_down = -1.5 # constraints for commanded vertical velocity
@@ -534,7 +554,7 @@ if __name__=='__main__':
     # To store average reward history of last few episodes
     avg_reward_list = [] 
     episodes = []
-    print('ok')
+   
     Environment()
 
     # buffer = Buffer(100000, 1000)

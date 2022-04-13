@@ -29,8 +29,21 @@ rosrun stalker RLVS.py
 conda activate aerials-env
 cd ~/ecatkin_ws
 source devel/setup.bash
-rosrun img_seg_cnn detect_line.py
+rosrun color_detector detect_line.py
 ```
+## run RL:
+```
+conda activate aerials-env
+cd ~/ecatkin_ws
+source devel/setup.bash
+rosrun color_detector RLVS.py
+```
+## show detection
+```
+rosrun image_view image_view image:=/Detection
+```
+
+
 ## extra (for reference):
 start gazebo alone:
 ```
@@ -46,6 +59,8 @@ roslaunch <package> <file.launch>
 ```
 ```
 rosrun image_view video_recorder image:=/iris_demo/ZED_stereocamera/camera/left/image_raw _filename:='video.avi'
+```
+```
 rosrun image_view image_view image:=/iris_demo/ZED_stereocamera/camera/left/image_raw
 ```
 ```
@@ -55,17 +70,6 @@ to use your controller:
 ```
 roslaunch stalker teleop.launch teleop_args:=-vel
 ```
-///
-rostopic list
-rostopic echo /gazebo/model_states
-rosmsg show nav_msgs/Odometry
-
-#publish to :
-/mavros/setpoint_raw/local : to set position target
-/mavros/setpoint_raw/attitude : to set attitude target
-
-#subscribe to :
-/iris_demo/ZED_stereocamera/camera/left/image_raw : to get image
 
 
 
