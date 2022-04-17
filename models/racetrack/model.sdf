@@ -8,7 +8,7 @@
           <collision name='racetrack'>
             <geometry>
               <mesh>
-                <uri>model://racetrack/racetrack.dae</uri>
+                <uri>model://racetrack/racetrackv3.dae</uri>
               </mesh>
             </geometry>
           </collision>
@@ -17,13 +17,13 @@
             <geometry>
               <mesh>
                 <scale>1 1 1</scale>
-                <uri>model://racetrack/racetrack.dae</uri>
+                <uri>model://racetrack/racetrackv3.dae</uri>
               </mesh>
             </geometry>
             <material>
               <script>
                 <name>racetrack</name>
-                <uri>model://racetrack/racetrack.dae</uri>
+                <uri>model://racetrack/racetrackv3.dae</uri>
               </script>
             </material>
           </visual>

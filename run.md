@@ -29,7 +29,7 @@ rosrun stalker RLVS.py
 conda activate aerials-env
 cd ~/ecatkin_ws
 source devel/setup.bash
-rosrun color_detector detect_line.py
+rosrun color_detector detect_linev2.py
 ```
 ## run RL:
 ```

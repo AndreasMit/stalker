@@ -23,8 +23,8 @@ class box_detector:
       print(e)
 
     image_hsv = cv.cvtColor(image, cv.COLOR_BGR2HSV)
-    #8 bit have 255 as max value, H has 180 max, we want high V that is gray (as the color of the pavement)
-    gray_mask = cv.inRange(image_hsv, (0,0,25), (0,0,255) ) 
+    #8 bit have 255 as max value, H has 180 max, we want high V that is white (as the color of the pavement)
+    gray_mask = cv.inRange(image_hsv, (0,0,50), (0,0,255) ) 
 
     contours, _ = cv.findContours(gray_mask, cv.RETR_TREE, cv.CHAIN_APPROX_SIMPLE)
     area = 0

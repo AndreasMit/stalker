@@ -8,7 +8,12 @@
         <pose>-5 0 1 0 0.2 0</pose>
       </camera>
     </gui>
-    
+
+    <scene>
+      <grid>false</grid>
+      <ambient>0.9 0.9 0.9 1</ambient>
+      <shadows>false</shadows>
+    </scene>
     
     <physics type="ode">
       <ode>
@@ -27,7 +32,7 @@
       <real_time_update_rate>-1</real_time_update_rate>
       <!--<max_step_size>0.0020</max_step_size>-->
     </physics>
-    
+
     <gravity>0 0 -9.8</gravity>
     
     <include>
