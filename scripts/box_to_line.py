@@ -16,6 +16,7 @@ class line_detector:
 	def __init__(self):
 		self.box_sub = rospy.Subscriber("/box", PREDdata ,self.box_callback)
 		self.att_sub = rospy.Subscriber("/mavros/local_position/odom", Odometry,self.attitude_callback)
+		self.imu_sub = rospy.Subscriber("/mavros/imu/data", Imu, self.imu_callback)
 		self.image_sub = rospy.Subscriber("/iris_demo/ZED_stereocamera/camera/left/image_raw",Image,self.image_callback) 
 		# self.line_pub = rospy.Publisher("/line_detector", Line, queue_size=10)
 		self.image_pub = rospy.Publisher("/RotDetection", Image, queue_size=10)
@@ -26,7 +27,7 @@ class line_detector:
 		self.cv = 240.5
 		self.ax = 252.075
 		self.ay = 252.075 
-		self.Z = 3
+		self.Z = 5
 		self.virtual_box = np.array([[0, 0], [0,0], [0,0], [0,0]])
 		self.line = 0
 		self.bridge = CvBridge()
@@ -44,7 +45,8 @@ class line_detector:
 		 			box.box_4[0],box.box_4[1], self.Z ]
 			# print(mp)
 			mp_cartesian = self.cartesian_from_pixel(mp, self.cu, self.cv, self.ax, self.ay)
-			mp_cartesian_v = self.featuresTransformation(mp_cartesian, self.phi, self.theta)
+			#use from imu and not from odometry
+			mp_cartesian_v = self.featuresTransformation(mp_cartesian, self.phi_imu, self.theta_imu)
 			mp_pixel_v = self.pixels_from_cartesian(mp_cartesian_v, self.cu, self.cv, self.ax, self.ay)
 
 			self.virtual_box = np.array([ [mp_pixel_v[0],mp_pixel_v[1] ],
@@ -80,6 +82,7 @@ class line_detector:
 			print(distance_y)
 			# print(distance_y, angle)
 
+
 	def image_callback(self,msg):
 		try:
 			image = self.bridge.imgmsg_to_cv2(msg,'bgr8')
@@ -93,17 +96,25 @@ class line_detector:
 		except CvBridgeError as e:
 			print(e)
 
+	def imu_callback(self.msg):
+		self.phi_imu = msg.orientation.x
+		self.theta_imu = msg.orientation.y
+		self.psi_imu = msg.orientation.z
+		self.w_imu = msg.orientation.w
+		self.phi_imu, self.theta_imu, self,psi_imu = euler_from_quaternion([self.phi_imu, self.theta_imu, self.psi_imu, self.w_imu])
+
+
 	def attitude_callback(self, msg):
-		self.x_velocity = msg.twist.twist.linear.x 
-		self.z_position = msg.pose.pose.position.z
-		quat = msg.pose.pose.orientation
-		#roll pitch yaw are returned correct -> phi and theta maybe was the problem
-		roll, pitch, yaw = self.quat2rpy(quat) #return angles in rads
-		# self.phi = roll # roll -> phi
-		# self.theta = pitch # pitch -> theta
-		self.phi = pitch 
-		self.theta = roll 
-		# print(self.x_velocity, np.rad2deg(roll), np.rad2deg(pitch) , self.z_position)
+		# self.x_velocity = msg.twist.twist.linear.x 
+		# self.z_position = msg.pose.pose.position.z
+		# quat = msg.pose.pose.orientation
+		# #roll pitch yaw are returned correct -> phi and theta maybe was the problem
+		# roll, pitch, yaw = self.quat2rpy(quat) #return angles in rads
+		# # self.phi = roll # roll -> phi
+		# # self.theta = pitch # pitch -> theta
+		# self.phi = pitch 
+		# self.theta = roll 
+		# # print(self.x_velocity, np.rad2deg(roll), np.rad2deg(pitch) , self.z_position)
 
 		#phi and theta need to be in rads
 	def featuresTransformation(self, mp, phi, theta):       

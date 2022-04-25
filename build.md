@@ -208,3 +208,6 @@ This command magically installs all the packages that the packages in your catki
 ```
 rosdep install --from-paths src --ignore-src -r -y :
 ```
+```
+sudo apt install python3-catkin-pkg-modules python3-rospkg-modules python3-empy
+```

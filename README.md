@@ -1,4 +1,4 @@
-# stalker
+# Stalker
 
 This is the repository for my Masters Diploma project.
 In this project i train a drone to follow a wheeled robot using Reingorcement Learning.
