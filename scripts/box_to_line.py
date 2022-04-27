@@ -1,15 +1,18 @@
-#!/usr/bin/env python3 
+#!/usr/bin/env python3
 
 import rospy
 import numpy as np
 import cv2 as cv
-from sensor_msgs.msg import Image
+from sensor_msgs.msg import Image, Imu
 from color_detector.msg import PREDdata
 from cv_bridge import CvBridge, CvBridgeError #convert Image to CV format
 # from color_detector.msg import Line
 from nav_msgs.msg import Odometry
 import math
 from math import *
+import matplotlib.pyplot as plt
+
+
 
 class line_detector:
 
@@ -33,6 +36,11 @@ class line_detector:
 		self.bridge = CvBridge()
 		self.box_center = [0,0]
 		self.center = [int(720/2-1),int(480/2-1)]
+		self.phi_imu, self.theta_imu, self.psi_imu = 0, 0, 0
+		self.new = False
+		self.dists = []
+		self.rdists = []
+		self.counter = 0
 
 	def box_callback(self,box):
 		if box.box_1==(0,0) and box.box_2==(0,0) and box.box_3==(0,0) and box.box_4==(0,0):
@@ -46,7 +54,7 @@ class line_detector:
 			# print(mp)
 			mp_cartesian = self.cartesian_from_pixel(mp, self.cu, self.cv, self.ax, self.ay)
 			#use from imu and not from odometry
-			mp_cartesian_v = self.featuresTransformation(mp_cartesian, self.phi_imu, self.theta_imu)
+			mp_cartesian_v = self.featuresTransformation(mp_cartesian,  (-1)*self.theta_imu, (-1)*self.phi_imu) #Rx , Ry
 			mp_pixel_v = self.pixels_from_cartesian(mp_cartesian_v, self.cu, self.cv, self.ax, self.ay)
 
 			self.virtual_box = np.array([ [mp_pixel_v[0],mp_pixel_v[1] ],
@@ -76,10 +84,29 @@ class line_detector:
 			box_center_x = (self.virtual_box[0][0]+self.virtual_box[2][0])//2 #center of diagonal
 			box_center_y = (self.virtual_box[0][1]+self.virtual_box[2][1])//2 
 			self.box_center = [box_center_x, box_center_y]
-			
+
+			#test difference
+			cx = (box.box_1[0]+box.box_3[0])//2
+			cy = (box.box_1[1]+box.box_3[1])//2
+			self.real_center = [cx, cy]
 			# distance = np.linalg.norm(np.array(self.center)-np.array(self.box_center))
 			distance_y = self.center[0]-self.box_center[0]
-			print(distance_y)
+			distance_y_real = self.center[0]-self.real_center[0]
+
+			distance_x = self.center[1]-self.box_center[1]
+			distance_x_real = self.center[1]-self.real_center[1]
+
+			if self.new == True:
+				print(distance_y,distance_y_real ) #y axis on drone,  x axis on image plane	
+				self.new = False
+				self.counter += 1
+				self.dists.append(distance_y)
+				self.rdists.append(distance_y_real)
+				if (self.counter % 20 == 0):
+					plt.plot(self.dists)
+					# plt.plot(self.rdists)
+					# plt.show()
+					plt.savefig('distances2.png')
 			# print(distance_y, angle)
 
 
@@ -90,21 +117,28 @@ class line_detector:
 			print(e)
 		cv.drawContours(image, [self.virtual_box], 0, (0, 0, 255), 1)
 		cv.line(image, tuple(self.virtual_box[self.line]), tuple(self.virtual_box[(self.line+1)%4]), (0, 255, 0), 1)
-		cv.line(image, tuple(self.center), (self.box_center[0], self.center[1]), (255, 0, 0), 1)
+		# y-roll axis testing
+		cv.line(image, tuple(self.center), (self.box_center[0], self.center[1]), (255, 0, 0), 2)
+		cv.line(image, (self.center[0], self.center[1]-4), (self.real_center[0], self.center[1]-4), (0, 255, 0), 2)
+		# x-pitch axis testing
+		# cv.line(image, tuple(self.center), (self.center[0], self.box_center[1]), (255, 0, 0), 2)
+		# cv.line(image, (self.center[0]-4, self.center[1]), (self.center[0]-4, self.real_center[1]), (0, 255, 0), 2)
+		# show only dot of center
+		# cv.line(image, (self.box_center[0], self.box_center[1]), (self.box_center[0]+2, self.box_center[1]), (255, 0, 0), 2)
+		# cv.line(image, (self.real_center[0], self.real_center[1]), (self.real_center[0]+2, self.real_center[1]), (0, 255, 0), 2)
 		try:
 			self.image_pub.publish(self.bridge.cv2_to_imgmsg(image, "bgr8"))
 		except CvBridgeError as e:
 			print(e)
 
-	def imu_callback(self.msg):
-		self.phi_imu = msg.orientation.x
-		self.theta_imu = msg.orientation.y
-		self.psi_imu = msg.orientation.z
-		self.w_imu = msg.orientation.w
-		self.phi_imu, self.theta_imu, self,psi_imu = euler_from_quaternion([self.phi_imu, self.theta_imu, self.psi_imu, self.w_imu])
-
+	def imu_callback(self,msg):
+		self.phi_imu, self.theta_imu, self.psi_imu = self.euler_from_quaternion(msg.orientation.x, msg.orientation.y,msg.orientation.z, msg.orientation.w)
+		# distance_y = self.center[0]-self.box_center[0]
+		#show only when roll and pitch are updated otherwise it oscillates
+		self.new = True
 
 	def attitude_callback(self, msg):
+		return
 		# self.x_velocity = msg.twist.twist.linear.x 
 		# self.z_position = msg.pose.pose.position.z
 		# quat = msg.pose.pose.orientation
@@ -118,8 +152,12 @@ class line_detector:
 
 		#phi and theta need to be in rads
 	def featuresTransformation(self, mp, phi, theta):       
-		Rphi = np.array([[1.0, 0.0, 0.0],[0.0, cos(phi), -sin(phi)],[0.0, sin(phi), cos(phi)]]).reshape(3,3)
-		Rtheta = np.array([[cos(theta), 0.0, sin(theta)],[0.0, 1.0, 0.0],[-sin(theta), 0.0, cos(theta)]]).reshape(3,3)
+		Rphi = np.array([[1.0, 0.0, 0.0],
+						[0.0, cos(phi), -sin(phi)],
+						[0.0, sin(phi), cos(phi)]]).reshape(3,3)
+		Rtheta = np.array([[cos(theta), 0.0, sin(theta)],
+						[0.0, 1.0, 0.0],
+						[-sin(theta), 0.0, cos(theta)]]).reshape(3,3)
 		Rft = np.dot(Rphi, Rtheta)
 		mpv0 = np.dot(Rft, mp[0:3])
 		mpv1 = np.dot(Rft, mp[3:6])
@@ -187,6 +225,22 @@ class line_detector:
 
 		return roll, pitch, yaw   
 
+ 
+	def euler_from_quaternion(self,x, y, z, w):
+		t0 = +2.0 * (w * x + y * z)
+		t1 = +1.0 - 2.0 * (x * x + y * y)
+		roll_x = math.atan2(t0, t1)
+	 
+		t2 = +2.0 * (w * y - z * x)
+		t2 = +1.0 if t2 > +1.0 else t2
+		t2 = -1.0 if t2 < -1.0 else t2
+		pitch_y = math.asin(t2)
+	 
+		t3 = +2.0 * (w * z + x * y)
+		t4 = +1.0 - 2.0 * (y * y + z * z)
+		yaw_z = math.atan2(t3, t4)
+		# in radians
+		return roll_x, pitch_y, yaw_z 
 
 
 if __name__=='__main__':
