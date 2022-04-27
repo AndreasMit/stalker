@@ -12,6 +12,9 @@ roslaunch stalker summit.launch
 ```
 cd ~/ardupilot/ArduCopter/ && sim_vehicle.py -v ArduCopter -f gazebo-iris --console
 ```
+```
+cd ~/ardupilot/ArduCopter/ && sim_vehicle.py -v ArduCopter -f gazebo-iris
+```
 ## start mavros (convert mavlink to ROS topics):
 ```
 roslaunch stalker apm.launch
@@ -31,6 +34,13 @@ cd ~/ecatkin_ws
 source devel/setup.bash
 rosrun color_detector detect_line.py
 ```
+## test box to line conversion:
+```
+conda activate aerials-env
+cd ~/ecatkin_ws
+source devel/setup.bash
+rosrun color_detector box_to_line.py
+```
 ## run RL:
 ```
 conda activate aerials-env
@@ -42,7 +52,9 @@ rosrun color_detector RLVS.py
 ```
 rosrun image_view image_view image:=/Detection
 ```
-
+```
+rosrun image_view image_view image:=/RotDetection
+```
 
 ## extra (for reference):
 start gazebo alone:
