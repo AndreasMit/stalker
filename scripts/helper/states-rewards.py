@@ -20,6 +20,12 @@ if self.timestep > 1:
                 delta_zdot = abs(self.action[3]-self.current_state[14])/max_vel_up
                 delta_action = delta_roll + delta_pitch + delta_yaw + delta_zdot     
                 weight_smoothness = 0.30
+
+                delta_roll = abs(self.action[0]-self.previous_action[0])/angle_max # normalized -> max movement from previous to current action is 2 (e.g from -10 to 10)
+                delta_pitch = abs(self.action[1]-self.previous_action[1])/angle_max
+                delta_yaw = abs(self.action[2]-(self.previous_action[2]))/yaw_max #[-90,90] action but i publish it with +90 -> [-180,180]
+                delta_action = delta_roll + delta_pitch + delta_yaw     
+                weight_smoothness = 0.30
         
                 action = abs(self.action[0])/angle_max + abs(self.action[1])/angle_max + abs(self.action[2])/angle_max + abs(self.action[3])/max_vel_up
                 weight_action = 0.10/max(position_error,0.01)
