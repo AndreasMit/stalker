@@ -14,11 +14,14 @@ class line_detector:
 		self.ay = 252.075 
 		self.center = [int(720/2-1),int(480/2-1)]
 
+	#the box and roll,pitch has to be synchronized in order to have accurate transforms
 	def compute(self, box, roll, pitch, Z):
+
 		if box.box_1==(0,0) and box.box_2==(0,0) and box.box_3==(0,0) and box.box_4==(0,0):
 			distance_y = 10000
 			angle = 0
 			return distance_y, angle
+
 		else:
 
 			mp = [ 	box.box_1[0],box.box_1[1], Z,
@@ -26,10 +29,11 @@ class line_detector:
 		 			box.box_3[0],box.box_3[1], Z, 
 		 			box.box_4[0],box.box_4[1], Z ]
 			# print(mp)
-			phi = np.deg2rad(pitch)
-			theta = np.deg2rad(roll)
+			Rotx = (-1)*np.deg2rad(pitch) #theta_imu, rotx on camera
+			Roty = (-1)*np.deg2rad(roll) #phi imu, roty on camera
+
 			mp_cartesian = self.cartesian_from_pixel(mp, self.cu, self.cv, self.ax, self.ay)
-			mp_cartesian_v = self.featuresTransformation(mp_cartesian, phi, theta)
+			mp_cartesian_v = self.featuresTransformation(mp_cartesian, Rotx, Roty) # x,y on camera coordinates
 			mp_pixel_v = self.pixels_from_cartesian(mp_cartesian_v, self.cu, self.cv, self.ax, self.ay)
 
 			virtual_box = np.array([ [mp_pixel_v[0],mp_pixel_v[1] ],
@@ -66,6 +70,8 @@ class line_detector:
 			box_center = [box_center_x, box_center_y]
 			
 			distance_y = self.center[0]-box_center[0]
+			distance_y = distance_y//2 #lower resolution
+			distance_y = distance_y*2
 			# print(distance_y, angle)
 			return distance_y, angle
 

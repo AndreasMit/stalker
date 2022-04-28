@@ -35,78 +35,85 @@ class line_detector:
 		self.line = 0
 		self.bridge = CvBridge()
 		self.box_center = [0,0]
+		self.real_center = [0,0]
 		self.center = [int(720/2-1),int(480/2-1)]
 		self.phi_imu, self.theta_imu, self.psi_imu = 0, 0, 0
 		self.new = False
 		self.dists = []
 		self.rdists = []
+		self.phis = []
 		self.counter = 0
 
 	def box_callback(self,box):
 		if box.box_1==(0,0) and box.box_2==(0,0) and box.box_3==(0,0) and box.box_4==(0,0):
 			print('out of bounds')
 		else:
-
-			mp = [ 	box.box_1[0],box.box_1[1], self.Z,
-		 			box.box_2[0],box.box_2[1], self.Z,
-		 			box.box_3[0],box.box_3[1], self.Z, 
-		 			box.box_4[0],box.box_4[1], self.Z ]
-			# print(mp)
-			mp_cartesian = self.cartesian_from_pixel(mp, self.cu, self.cv, self.ax, self.ay)
-			#use from imu and not from odometry
-			mp_cartesian_v = self.featuresTransformation(mp_cartesian,  (-1)*self.theta_imu, (-1)*self.phi_imu) #Rx , Ry
-			mp_pixel_v = self.pixels_from_cartesian(mp_cartesian_v, self.cu, self.cv, self.ax, self.ay)
-
-			self.virtual_box = np.array([ [mp_pixel_v[0],mp_pixel_v[1] ],
-										[mp_pixel_v[3],mp_pixel_v[4] ],
-										[mp_pixel_v[6],mp_pixel_v[7] ],
-										[mp_pixel_v[9],mp_pixel_v[10]] ])
-			self.virtual_box = np.int0(self.virtual_box)
-
-			# print([self.virtual_box])
-			lines = np.zeros(4)
-			lines[0] = np.linalg.norm(self.virtual_box[0] - self.virtual_box[1])
-			lines[1] = np.linalg.norm(self.virtual_box[1] - self.virtual_box[2])
-			lines[2] = np.linalg.norm(self.virtual_box[2] - self.virtual_box[3])
-			lines[3] = np.linalg.norm(self.virtual_box[3] - self.virtual_box[0])
-			long_line = np.argmax(lines) 
-			self.line = long_line
-			# we assume that the long line is always the one we want to follow 
-			# angle = np.arctan2(self.virtual_box[long_line], self.virtual_box[(long_line+1)%4]) #returns [-pi,pi] , i want -pi/2 to pi/2 
-			x = self.virtual_box[long_line][0] - self.virtual_box[(long_line+1)%4][0]
-			y = (self.virtual_box[long_line][1]-self.virtual_box[(long_line+1)%4][1])
-			if(x!=0):
-				angle = np.arctan(y/x) 
-				angle = np.degrees(angle)
-			else:
-				angle = 90
-			#90 is the best , 0 is the worst angle , good angle [-70,70], maybe change that later
-			box_center_x = (self.virtual_box[0][0]+self.virtual_box[2][0])//2 #center of diagonal
-			box_center_y = (self.virtual_box[0][1]+self.virtual_box[2][1])//2 
-			self.box_center = [box_center_x, box_center_y]
-
-			#test difference
-			cx = (box.box_1[0]+box.box_3[0])//2
-			cy = (box.box_1[1]+box.box_3[1])//2
-			self.real_center = [cx, cy]
-			# distance = np.linalg.norm(np.array(self.center)-np.array(self.box_center))
-			distance_y = self.center[0]-self.box_center[0]
-			distance_y_real = self.center[0]-self.real_center[0]
-
-			distance_x = self.center[1]-self.box_center[1]
-			distance_x_real = self.center[1]-self.real_center[1]
-
 			if self.new == True:
-				print(distance_y,distance_y_real ) #y axis on drone,  x axis on image plane	
 				self.new = False
+				mp = [ 	box.box_1[0],box.box_1[1], self.Z,
+			 			box.box_2[0],box.box_2[1], self.Z,
+			 			box.box_3[0],box.box_3[1], self.Z, 
+			 			box.box_4[0],box.box_4[1], self.Z ]
+				# print(mp)
+				mp_cartesian = self.cartesian_from_pixel(mp, self.cu, self.cv, self.ax, self.ay)
+				#use from imu and not from odometry
+				mp_cartesian_v = self.featuresTransformation(mp_cartesian,  (-1)*self.theta_imu, (-1)*self.phi_imu) #Rx , Ry
+				mp_pixel_v = self.pixels_from_cartesian(mp_cartesian_v, self.cu, self.cv, self.ax, self.ay)
+
+				self.virtual_box = np.array([ [mp_pixel_v[0],mp_pixel_v[1] ],
+											[mp_pixel_v[3],mp_pixel_v[4] ],
+											[mp_pixel_v[6],mp_pixel_v[7] ],
+											[mp_pixel_v[9],mp_pixel_v[10]] ])
+				self.virtual_box = np.int0(self.virtual_box)
+
+				# print([self.virtual_box])
+				lines = np.zeros(4)
+				lines[0] = np.linalg.norm(self.virtual_box[0] - self.virtual_box[1])
+				lines[1] = np.linalg.norm(self.virtual_box[1] - self.virtual_box[2])
+				lines[2] = np.linalg.norm(self.virtual_box[2] - self.virtual_box[3])
+				lines[3] = np.linalg.norm(self.virtual_box[3] - self.virtual_box[0])
+				long_line = np.argmax(lines) 
+				self.line = long_line
+				# we assume that the long line is always the one we want to follow 
+				# angle = np.arctan2(self.virtual_box[long_line], self.virtual_box[(long_line+1)%4]) #returns [-pi,pi] , i want -pi/2 to pi/2 
+				x = self.virtual_box[long_line][0] - self.virtual_box[(long_line+1)%4][0]
+				y = (self.virtual_box[long_line][1]-self.virtual_box[(long_line+1)%4][1])
+				if(x!=0):
+					angle = np.arctan(y/x) 
+					angle = np.degrees(angle)
+				else:
+					angle = 90
+				#90 is the best , 0 is the worst angle , good angle [-70,70], maybe change that later
+				box_center_x = (self.virtual_box[0][0]+self.virtual_box[2][0])//2 #center of diagonal
+				box_center_y = (self.virtual_box[0][1]+self.virtual_box[2][1])//2 
+				self.box_center = [box_center_x, box_center_y]
+
+				#test difference
+				cx = (box.box_1[0]+box.box_3[0])//2
+				cy = (box.box_1[1]+box.box_3[1])//2
+				self.real_center = [cx, cy]
+				# distance = np.linalg.norm(np.array(self.center)-np.array(self.box_center))
+				distance_y = self.center[0]-self.box_center[0]
+				distance_y_real = self.center[0]-self.real_center[0]
+
+				distance_x = self.center[1]-self.box_center[1]
+				distance_x_real = self.center[1]-self.real_center[1]
+
+				# lower resolution because 1 pixel oscillates easily
+				distance_y = distance_y//2
+				# distance_y = round(distance_y)
+				distance_y = distance_y*2
+				# print(distance_y,distance_y_real ) #y axis on drone,  x axis on image plane	
 				self.counter += 1
 				self.dists.append(distance_y)
-				self.rdists.append(distance_y_real)
+				self.phis.append(10*np.rad2deg(self.phi_imu))
+				# self.rdists.append(distance_y_real)
 				if (self.counter % 20 == 0):
 					plt.plot(self.dists)
-					# plt.plot(self.rdists)
-					# plt.show()
-					plt.savefig('distances2.png')
+					plt.plot(self.phis)
+					plt.grid()
+					# plt.savefig('distances16.png')
+				print(angle)
 			# print(distance_y, angle)
 
 

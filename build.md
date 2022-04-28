@@ -148,6 +148,7 @@ pip install keras==2.2.5
 pip install opencv-python==4.4.0.42
 pip install keras-segmentation
 pip install rospkg empy
+pip install matplotlib
 ```
 to stop virtual environment:
 ```
