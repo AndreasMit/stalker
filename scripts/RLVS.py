@@ -326,7 +326,7 @@ class Environment:
             if self.distance == 10000 and self.angle == 0 :
                 self.exceeded_bounds = True
             elif abs(self.distance) < self.good_distance and abs(self.angle) < self.good_angle and self.angle!=0:
-                print('good position')
+                # print('good position')
                 # print(self.distance, self.angle)
                 self.x_initial = self.x_position
                 self.y_initial = self.y_position
@@ -348,7 +348,7 @@ class Environment:
                 # When reach the inital position, begin next episode    
                 if abs(self.x_position-self.x_initial)<0.2 and abs(self.y_position-self.y_initial)<0.2 and abs(self.z_position-self.z_initial)<0.2 :
                     self.to_start = True
-                    print('setting yaw')
+                    # print('setting yaw')
                     action_mavros = AttitudeTarget()
                     action_mavros.type_mask = 7
                     action_mavros.thrust = 0.5 # Altitude hold
@@ -376,9 +376,15 @@ class Environment:
                     #REWARD
 
                     #penalize big angle and distance from center
-                    position_error = abs(self.distance)/max_distance + abs(self.angle)/max_angle
+                    if self.angle < 2 and abs(self.distance) > 260: # this case is when the box is on the edge of the image and its not realy vertical
+                        angle_error = 1
+                    else:
+                        angle_error = abs(self.angle)/max_angle
+
+                    position_error = abs(self.distance)/max_distance + angle_error
                     weight_position = 100
-            
+                    # print(angle_error, abs(self.distance))
+
                     #penalize velocity error
                     velocity_error = abs(self.x_velocity - self.desired_vel_x)/max_velocity
                     weight_velocity = 10
@@ -429,6 +435,7 @@ class Environment:
                 tf_action = tf.squeeze(actor_model(tf_current_state))
                 noise = ou_noise()
                 self.action = tf_action.numpy() + noise  # Add exploration strategy
+                # print(self.action)
                 self.action[0] = np.clip(self.action[0], angle_min, angle_max)
                 self.action[1] = np.clip(self.action[1], angle_min, angle_max)
                 self.action[2] = np.clip(self.action[2], yaw_min, yaw_max)
