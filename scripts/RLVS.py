@@ -387,7 +387,7 @@ class Environment:
 
                     #penalize velocity error
                     velocity_error = abs(self.x_velocity - self.desired_vel_x)/max_velocity
-                    weight_velocity = 50
+                    weight_velocity = 40
 
                     # penalize big roll and pitch values
                     #could do it with sqrt
