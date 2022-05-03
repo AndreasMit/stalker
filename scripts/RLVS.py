@@ -12,7 +12,7 @@ import time
 from tensorflow.keras import layers
 from mavros_msgs.msg import PositionTarget
 import pylab
-from color_detector.msg import PREDdata
+from stalker.msg import PREDdata
 from BoxToLineClass import line_detector
 
 #-------------------------------- NOISE CLASS --------------------------------#
