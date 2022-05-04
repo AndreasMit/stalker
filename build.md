@@ -1,4 +1,4 @@
-# instructions how to setup your system so that you can use the simulator
+# instructions how to setup the system
 
 ## dependencies #1:
 ```
@@ -102,7 +102,7 @@ git clone https://github.com/AndreasMit/stalker
 cd ~/catkin_ws
 catkin build
 ```
-## get gazebo models(maybe needed):
+## get gazebo models(optional):
 ```
 cd ~
 git clone https://github.com/osrf/gazebo_models.git
@@ -121,9 +121,8 @@ rosdep install --from-paths src --ignore-src --skip-keys="summit_xl_robot_contro
 catkin build
 ```
 
-# Scripts and python environments
-
-## install conda and create virtual environments for training NN:
+## Scripts and python environments
+## install conda and create virtual environments:
 follow instructions: https://docs.anaconda.com/anaconda/install/linux/
 create an enviroment named 'aerials':
 ```
@@ -149,6 +148,8 @@ pip install opencv-python==4.4.0.42
 pip install keras-segmentation
 pip install rospkg empy
 pip install matplotlib
+pip install 'gast==0.2.2'
+pip install opencv-python-headless==4.1.2.30
 ```
 to stop virtual environment:
 ```
@@ -163,52 +164,7 @@ conda config --set auto_activate_base False
 cd ~/catkin_ws/src/stalker/scripts
 chmod +x RLVS.py
 ```
-
-base of anaconda doesnt have the following. i could deactivate the base.
-## python3 dependencies:
-```
-pip3 install numpy
-pip3 install scipy matplotlib pillow
-pip3 install imutils h5py==2.10.0 requests progressbar2
-pip3 install cython
-pip3 install scikit-learn scikit-build scikit-image
-pip3 install opencv-contrib-python==4.4.0.46
-pip3 install tensorflow-gpu==1.14.0
-pip3 install keras==2.2.5
-pip3 install opencv-python==4.4.0.42
-pip3 install keras-segmentation
-pip3 install rospkg empy
-pip3 install gym
-pip3 install opencv-python-headless==4.1.2.30
-pip3 install 'gast==0.2.2'
-```
-## install dependencies #4 (for opencv): not working
-```
-sudo apt-get install ros-melodic-cv-bridge
-sudo apt-get install ros-melodic-vision-opencv
-```
-## image detection packages:
-you need the package cv_bridge to convert sensor_msgs/Image of ROS to opevCV format: http://wiki.ros.org/vision_opencv
-```
-cd ~/catkin_ws/src
-git clone https://github.com/OTL/cv_camera.git
-git clone https://github.com/ros-perception/image_common.git
-git clone https://github.com/ros-perception/vision_opencv.git # only this is need for now
-git clone https://github.com/amc-nu/RosImageFolderPublisher.git
-```
-->> not working
-Comment out line #11 so that you avoid build error.
-Also dependencies added in CMakeLists.txt (no action required)
-
-## ecatkin workspace for python scripts (from csl folder):
-Get ecatkin_ws with the above 4 packages and make with the command below:
-```
-catkin_make -DPYTHON_EXECUTABLE=/usr/bin/python3 -DPYTHON_INCLUDE_DIR=/usr/include/python3.6 -DPYTHON_LIBRARY=/usr/lib/x86_64-linux-gnu/libpython3.6m.so
-```
-This command magically installs all the packages that the packages in your catkin workspace depend upon but are missing on your computer:
+This command installs all the packages that the packages in your catkin workspace depend upon but are missing on your computer: (just for reference)
 ```
 rosdep install --from-paths src --ignore-src -r -y :
-```
-```
-sudo apt install python3-catkin-pkg-modules python3-rospkg-modules python3-empy
 ```

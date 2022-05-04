@@ -12,7 +12,7 @@ import time
 from tensorflow.keras import layers
 from mavros_msgs.msg import PositionTarget
 import pylab
-from color_detector.msg import PREDdata
+from stalker.msg import PREDdata
 from BoxToLineClass import line_detector
 
 #-------------------------------- NOISE CLASS --------------------------------#
@@ -330,7 +330,7 @@ class Environment:
                 # print(self.distance, self.angle)
                 self.x_initial = self.x_position
                 self.y_initial = self.y_position
-                self.z_initial = self.z_position
+                # self.z_initial = self.z_position #keep it to 5 meters
                 self.yaw_initial = self.yaw
 
             # Check done signal which indicates whether s' is terminal. The episode is terminated when the quadrotor is out of bounds or after a max # of timesteps
@@ -387,11 +387,11 @@ class Environment:
 
                     #penalize velocity error
                     velocity_error = abs(self.x_velocity - self.desired_vel_x)/max_velocity
-                    weight_velocity = 10
+                    weight_velocity = 40
 
                     # penalize big roll and pitch values
                     #could do it with sqrt
-                    action = abs(self.action[0])/angle_max + abs(self.action[1])/angle_max 
+                    action = abs(self.action[0])/angle_max + abs(self.action[1])/angle_max + abs(self.action[2])/yaw_max
                     weight_action = 10
 
                     #penalize changes in yaw
@@ -448,7 +448,7 @@ class Environment:
                 # Roll, Pitch, Yaw in Degrees
                 roll_des = self.action[0]
                 pitch_des = self.action[1] 
-                yaw_des = self.action[2] + 90
+                yaw_des = self.action[2] + self.yaw  #differences in yaw
                 # print(yaw_des)
 
                 # Convert to mavros message and publish desired attitude
@@ -526,8 +526,8 @@ if __name__=='__main__':
 
     angle_max = 2.0 
     angle_min = -2.0 # constraints for commanded roll and pitch
-    yaw_max = 90
-    yaw_min = -90
+    yaw_max = 5 #how much yaw should change every time
+    yaw_min = -5
 
     max_vel_up = 1.5 # Real one is 2.5
     max_vel_down = -1.5 # constraints for commanded vertical velocity
@@ -548,11 +548,11 @@ if __name__=='__main__':
     target_critic.set_weights(critic_model.get_weights())
 
     # Load pretrained weights
-    # actor_model.load_weights('/home/fotis/rl_ws/ddpg_actor.h5')
-    # critic_model.load_weights('/home/fotis/rl_ws/ddpg_critic.h5')
+    actor_model.load_weights('ddpg_actor.h5')
+    critic_model.load_weights('ddpg_critic.h5')
 
-    # target_actor.load_weights('/home/fotis/rl_ws/ddpg_target_actor.h5')
-    # target_critic.load_weights('/home/fotis/rl_ws/ddpg_target_critic.h5')
+    target_actor.load_weights('ddpg_target_actor.h5')
+    target_critic.load_weights('ddpg_target_critic.h5')
 
     # Learning rate for actor-critic models
     critic_lr = 0.002

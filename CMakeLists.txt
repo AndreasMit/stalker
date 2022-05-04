@@ -12,6 +12,10 @@ find_package(catkin REQUIRED COMPONENTS
   roscpp
   rospy
   std_msgs
+  geometry_msgs
+  message_runtime
+  sensor_msgs
+  message_generation
 )
 
 ## System dependencies are found with CMake's conventions
@@ -49,6 +53,7 @@ find_package(catkin REQUIRED COMPONENTS
 
 ## Generate messages in the 'msg' folder
 add_message_files(
+   DIRECTORY msg
    FILES
    PREDdata.msg
 #   Message1.msg
@@ -70,10 +75,11 @@ add_message_files(
 # )
 
 ## Generate added messages and services with any dependencies listed here
-# generate_messages(
-#   DEPENDENCIES
-#   std_msgs
-# )
+generate_messages(
+   DEPENDENCIES
+   std_msgs
+   sensor_msgs
+)
 
 ################################################
 ## Declare ROS dynamic reconfigure parameters ##
@@ -107,7 +113,7 @@ add_message_files(
 catkin_package(
 #  INCLUDE_DIRS include
 #  LIBRARIES stalker
-#  CATKIN_DEPENDS mavros roscpp rospy std_msgs
+CATKIN_DEPENDS mavros roscpp rospy std_msgs geometry_msgs sensor_msgs message_runtime message_generation
 #  DEPENDS system_lib
 )
 
@@ -162,7 +168,6 @@ include_directories(
 ## Mark executable scripts (Python etc.) for installation
 ## in contrast to setup.py, you can choose the destination
 catkin_install_python(PROGRAMS
-   scripts/detector/vgg_unet_predict.py
    DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
 )
 
