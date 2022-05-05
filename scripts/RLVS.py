@@ -382,22 +382,27 @@ class Environment:
                         angle_error = abs(self.angle)/max_angle
 
                     position_error = abs(self.distance)/max_distance + angle_error
-                    weight_position = 100
+                    weight_position = 50
+                    #max 100
                     # print(angle_error, abs(self.distance))
 
                     #penalize velocity error
                     velocity_error = abs(self.x_velocity - self.desired_vel_x)/max_velocity
                     weight_velocity = 40
+                    #max 40
 
                     # penalize big roll and pitch values
                     #could do it with sqrt
                     action = abs(self.action[0])/angle_max + abs(self.action[1])/angle_max + abs(self.action[2])/yaw_max
                     weight_action = 10
+                    #max 30
 
                     #penalize changes in yaw
                     yaw_smooth = abs(self.action[2]-self.previous_action[2])/yaw_max
                     weight_yaw = 30
+                    #max 30
 
+                    #total max 200
                     # print(weight_position*position_error, weight_velocity*velocity_error, weight_action*action, weight_yaw*yaw_smooth )
                     # print(self.action[0], self.action[1], self.action[2])
                     # print(self.yaw)
@@ -406,7 +411,8 @@ class Environment:
                     self.reward += -weight_velocity*velocity_error
                     self.reward += -weight_action*action
                     self.reward += -weight_yaw*yaw_smooth
-                    
+                    self.reward = self.reward/200 # -> reward is between [-1,0]
+                    # dont use the above if you are using 'shaping'
                    
                     # print(self.reward)
                     # Record s,a,r,s'
