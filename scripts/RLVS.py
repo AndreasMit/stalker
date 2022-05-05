@@ -275,16 +275,24 @@ class Environment:
 
             print("-----Weights saved-----") 
 
-            pylab.plot(episodes, ep_reward_list, 'b')
-            pylab.plot(episodes, avg_reward_list, 'r')
-            pylab.ylabel('Score', fontsize=18)
-            pylab.xlabel('Steps', fontsize=18)
-            try:
-                pylab.grid(True)
-                pylab.savefig("DDPG_score.png")
-                print("-----Plots saved-----")
-            except OSError:
-                pass            
+            # pylab.plot(episodes, ep_reward_list, 'b')
+            # pylab.plot(episodes, avg_reward_list, 'r')
+            # pylab.ylabel('Score', fontsize=18)
+            # pylab.xlabel('Steps', fontsize=18)
+            # try:
+            #     pylab.grid(True)
+            #     pylab.savefig("DDPG_score.png")
+            #     print("-----Plots saved-----")
+            # except OSError:
+            #     pass      
+            plt.plot(ep_reward_list, 'b')
+            plt.plot(avg_reward_list, 'r')
+            plt.ylabel('Score')
+            plt.xlabel('Steps')
+            plt.grid()
+            plt.savefig('ddpg_score')
+            print("-----Plots saved-----")
+
 
         # Reset episodic reward and timestep to zero
         self.episodic_reward = 0.0
