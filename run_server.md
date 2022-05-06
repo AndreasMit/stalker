@@ -21,7 +21,7 @@ roslaunch stalker summit.launch
 ```
 ## start ardupilot sitl:
 ```
-cd ~andreas/ardupilot/ArduCopter/ && sim_vehicle.py -v ArduCopter -f gazebo-iris
+cd ~/andreas/ardupilot/ArduCopter/ && sim_vehicle.py -v ArduCopter -f gazebo-iris
 ```
 ## start mavros (convert mavlink to ROS topics):
 ```
