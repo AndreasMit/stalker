@@ -3,6 +3,7 @@
 import rospy
 import tensorflow as tf
 import numpy as np
+import matplotlib.pyplot as plt
 from nav_msgs.msg import Odometry
 from geometry_msgs.msg import Point
 from geometry_msgs.msg import Quaternion
@@ -148,7 +149,7 @@ class Environment:
         #initialize current position
         self.x_position = 0.0
         self.y_position = 0.0
-        self.z_position= 5.0
+        self.z_position= 7.0
         self.x_velocity = 0.0
         self.y_velocity = 0.0
         self.z_velocity = 0.0 
@@ -261,17 +262,18 @@ class Environment:
         # Mean episodic reward of last 40 episodes
         avg_reward = np.mean(ep_reward_list[-40:])
         episodes.append(self.current_episode)
+        print("timesteps :", self.timestep)
         print("Episode * {} * Cur Reward is ==> {}".format(self.current_episode,self.episodic_reward*self.max_timesteps/self.timestep))
         # print("Episode * {} * Cur Reward is ==> {}".format(self.current_episode,self.episodic_reward))
         print("Episode * {} * Avg Reward is ==> {}".format(self.current_episode, avg_reward))
         avg_reward_list.append(avg_reward)
         # Save the weights every 30 episodes to a file
         if self.current_episode % 30 == 0.0:
-            actor_model.save_weights("ddpg_actor.h5")
-            critic_model.save_weights("ddpg_critic.h5")
+            actor_model.save_weights("checkpoints/st_co6/ddpg_actor.h5")
+            critic_model.save_weights("checkpoints/st_co6/ddpg_critic.h5")
 
-            target_actor.save_weights("ddpg_target_actor.h5")
-            target_critic.save_weights("ddpg_target_critic.h5")    
+            target_actor.save_weights("checkpoints/st_co6/ddpg_target_actor.h5")
+            target_critic.save_weights("checkpoints/st_co6/ddpg_target_critic.h5")    
 
             print("-----Weights saved-----") 
 
@@ -384,33 +386,44 @@ class Environment:
                     #REWARD
 
                     #penalize big angle and distance from center
-                    if self.angle < 2 and abs(self.distance) > 260: # this case is when the box is on the edge of the image and its not realy vertical
+                    if self.angle < 2 and abs(self.distance) > 200: # this case is when the box is on the edge of the image and its not realy vertical
                         angle_error = 1
                     else:
+                        # angle_error = max(abs(self.angle)-8,0)/max_angle
                         angle_error = abs(self.angle)/max_angle
 
-                    position_error = abs(self.distance)/max_distance + angle_error
-                    weight_position = 50
-                    #max 100
+                    #if angle = 90??
+
+                    # distance_error = max(abs(self.distance)-40,0)/max_distance
+                    distance_error = abs(self.distance)/max_distance
+                    # position_error = distance_error + angle_error 
+                    # position_error = np.sqrt(distance_error) +np.sqrt(angle_error)
+                    position_error = distance_error**2 + angle_error**2
+                    weight_position = 100
+                    #max 200
                     # print(angle_error, abs(self.distance))
 
                     #penalize velocity error
                     velocity_error = abs(self.x_velocity - self.desired_vel_x)/max_velocity
-                    weight_velocity = 40
-                    #max 40
+                    weight_velocity = 50
+                    #max 50
 
                     # penalize big roll and pitch values
                     #could do it with sqrt
-                    action = abs(self.action[0])/angle_max + abs(self.action[1])/angle_max + abs(self.action[2])/yaw_max
-                    weight_action = 10
-                    #max 30
+                    action = abs(self.action[0])/angle_max + abs(self.action[1])/angle_max 
+                    weight_action = 1
+                    #max 2
+
+                    #penalize big yaw changes
+                    yaw_smooth = abs(self.action[2])/yaw_max
+                    weight_yaw = 40
 
                     #penalize changes in yaw
-                    yaw_smooth = abs(self.action[2]-self.previous_action[2])/yaw_max
-                    weight_yaw = 30
+                    # yaw_smooth = abs(self.action[2]-self.previous_action[2])/yaw_max
+                    # weight_yaw = 30
                     #max 30
 
-                    #total max 200
+                    #total max 310
                     # print(weight_position*position_error, weight_velocity*velocity_error, weight_action*action, weight_yaw*yaw_smooth )
                     # print(self.action[0], self.action[1], self.action[2])
                     # print(self.yaw)
@@ -419,10 +432,15 @@ class Environment:
                     self.reward += -weight_velocity*velocity_error
                     self.reward += -weight_action*action
                     self.reward += -weight_yaw*yaw_smooth
-                    self.reward = self.reward/200 # -> reward is between [-1,0]
+                    self.reward = self.reward/300 # -> reward is between [-1,0]
+                    # self.reward = min(self.reward+0.15, 0 )
                     # dont use the above if you are using 'shaping'
-                   
-                    # print(self.reward)
+                    # print(position_error, velocity_error, action, yaw_smooth)
+                    # print( distance_error *100, angle_error *100)
+                    # print( abs(self.x_velocity - self.desired_vel_x)/max_velocity *100)
+                    # print(int(weight_position*position_error) ,int(weight_velocity*velocity_error), int(weight_action*action), int(weight_yaw*yaw_smooth))
+                    # print(int(self.distance), int(self.angle), int(self.x_velocity), 'reward', int(self.reward*100))
+                    print(int(distance_error*100), int(angle_error*100), int(velocity_error*100), int(action*100) ,'reward', int(self.reward*100))
                     # Record s,a,r,s'
                     buffer.record((self.previous_state, self.action, self.reward, self.current_state ))
 
@@ -433,14 +451,6 @@ class Environment:
                     update_target(target_actor.variables, actor_model.variables, tau)
                     update_target(target_critic.variables, critic_model.variables, tau)  
 
-                    if self.timestep%200 == 0:
-                        print("--------------Counter %d--------------" % self.timestep) 
-                        print("State: ", self.previous_state)
-                        print("Next State: ",self.current_state)
-                        print("Previous action: ",self.previous_action)
-                        print("Action: ",self.action)
-                        print("Position error: ",position_error)
-                        print("Total reward: ",self.reward)
                     
                 self.previous_action = self.action                  
 
@@ -453,11 +463,6 @@ class Environment:
                 self.action[0] = np.clip(self.action[0], angle_min, angle_max)
                 self.action[1] = np.clip(self.action[1], angle_min, angle_max)
                 self.action[2] = np.clip(self.action[2], yaw_min, yaw_max)
-
-                if self.timestep%100 == 0:
-                    print("Next action: ", tf_action.numpy())
-                    print("Noise: ", noise)
-                    print("Noisy action: ", self.action)
 
                 # Roll, Pitch, Yaw in Degrees
                 roll_des = self.action[0]
@@ -538,10 +543,10 @@ if __name__=='__main__':
     num_actions = 3 # commanded vertical velocity, roll and yaw
     num_states = 3  
 
-    angle_max = 2.0 
-    angle_min = -2.0 # constraints for commanded roll and pitch
-    yaw_max = 5 #how much yaw should change every time
-    yaw_min = -5
+    angle_max = 3.0 
+    angle_min = -3.0 # constraints for commanded roll and pitch
+    yaw_max = 2.0 #how much yaw should change every time
+    yaw_min = -2.0
 
     max_vel_up = 1.5 # Real one is 2.5
     max_vel_down = -1.5 # constraints for commanded vertical velocity
@@ -562,11 +567,11 @@ if __name__=='__main__':
     target_critic.set_weights(critic_model.get_weights())
 
     # Load pretrained weights
-    # actor_model.load_weights('ddpg_actor.h5')
-    # critic_model.load_weights('ddpg_critic.h5')
+    actor_model.load_weights('checkpoints/st_co6/ddpg_actor.h5')
+    critic_model.load_weights('checkpoints/st_co6/ddpg_critic.h5')
 
-    # target_actor.load_weights('ddpg_target_actor.h5')
-    # target_critic.load_weights('ddpg_target_critic.h5')
+    target_actor.load_weights('checkpoints/st_co6/ddpg_target_actor.h5')
+    target_critic.load_weights('checkpoints/st_co6/ddpg_target_critic.h5')
 
     # Learning rate for actor-critic models
     critic_lr = 0.002
