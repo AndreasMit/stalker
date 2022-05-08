@@ -10,7 +10,7 @@ roslaunch stalker summit.launch
 ```
 ## start ardupilot sitl:
 ```
-cd ~/ardupilot/ArduCopter/ && sim_vehicle.py -v ArduCopter -f gazebo-iris --console --map
+cd ~/ardupilot/ArduCopter/ && sim_vehicle.py --mavproxy-args="--streamrate=30" -v ArduCopter -f gazebo-iris --console --map
 ```
 ```
 cd ~/ardupilot/ArduCopter/ && sim_vehicle.py --mavproxy-args="--streamrate=30" -v ArduCopter -f gazebo-iris

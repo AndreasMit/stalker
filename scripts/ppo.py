@@ -187,13 +187,17 @@ class Environment:
 
         # Initialize variables
         self.timestep = 1
-        self.current_episode = 1
+        self.current_episode = 0
         self.episodic_reward = 0.0
         self.observation = np.zeros(num_states)
         self.action = np.zeros(num_actions)
         self.previous_action = np.zeros(num_actions)
         self.done = False
         self.max_timesteps = 512
+
+        self.sum_return = 0.0 
+        self.sum_timesteps = 0 #sum_length
+        self.steps_per_epoch = 4000
         
         # Define Subscriber !edit type
         self.sub_detector = rospy.Subscriber("/box", PREDdata, self.DetectCallback)
@@ -292,24 +296,30 @@ class Environment:
             if kl > 1.5 * target_kl:
                 # Early Stopping
                 break
+
         # Update the value function
         for _ in range(train_value_iterations):
             train_value_function(observation_buffer, return_buffer)
 
         # Print mean return and length for each epoch
         print(
-            f" Epoch: {epoch + 1}. Mean Return: {self.sum_return / self.num_episodes}. Mean Length: {self.sum_timesteps / self.num_episodes}"
+            f" Epoch: {epoch + 1}. Mean Return: {self.sum_return / self.current_episode}. Mean Length: {self.sum_timesteps / self.current_episode}"
         )
+        print('episodes of this epoch', self.current_episode)
         actor.save_weights("ppo_actor.h5")
         critic.save_weights("ppo_critic.h5")
         print("-----Weights saved-----")
 
-        plt.plot(self.sum_return / self.num_episodes, 'b')
+        plt.plot(self.sum_return / self.current_episode, 'b')
         plt.ylabel('Score')
         plt.xlabel('Steps')
         plt.grid()
         plt.savefig('ppo_score')
         print("-----Plots saved-----")
+
+        self.sum_return = 0.0
+        self.current_episode = 0
+        self.sum_timesteps = 0
 
     def reset(self):
         # If done, the episode has terminated -> save the episode's reward
@@ -319,6 +329,7 @@ class Environment:
         episodes.append(self.current_episode)
         print("Episode * {} * Cur Reward is ==> {}".format(self.current_episode,self.episodic_reward))
         print("Episode * {} * Avg Reward is ==> {}".format(self.current_episode, avg_reward))
+        print("timesteps of this episode ", self.timestep)
         avg_reward_list.append(avg_reward)
 
         if (self.sum_timesteps> self.steps_per_epoch):
@@ -327,9 +338,7 @@ class Environment:
             last_value = -1
 
         buffer.finish_trajectory(last_value) 
-        self.sum_return += self.episodic_reward
-        self.sum_timesteps += self.timestep
-        self.num_episodes += 1      
+        self.sum_return += self.episodic_reward 
 
         # Reset episodic reward and timestep to zero
         self.episodic_reward = 0.0
@@ -491,22 +500,20 @@ class Environment:
 
                 self.observation = self.observation_new
                 self.timestep += 1 
-                self.sum_timesteps += 1       
+                self.sum_timesteps += 1     
 
 
 if __name__=='__main__':
     rospy.init_node('rl_node', anonymous=True)
 
     # Hyperparameters of the PPO algorithm
-    steps_per_epoch = 4000
-    epochs = 30
-    gamma = 0.99
     clip_ratio = 0.2
     policy_learning_rate = 3e-4
     value_function_learning_rate = 1e-3
     train_policy_iterations = 80
     train_value_iterations = 80
     lam = 0.97
+    gamma = 0.99
     target_kl = 0.01
     hidden_sizes = (64, 64)
 
