@@ -30,14 +30,14 @@ rosrun stalker RLVS.py
 ## run detection scripts:
 ```
 conda activate aerials-env
-cd ~/ecatkin_ws
+cd ~/vision
 source devel/setup.bash
 rosrun color_detector detect_line.py
 ```
 ## test box to line conversion:
 ```
 conda activate aerials-env
-cd ~/ecatkin_ws
+cd ~/vision
 source devel/setup.bash
 rosrun color_detector box_to_line.py
 ```

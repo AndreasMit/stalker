@@ -189,7 +189,7 @@ class Environment:
         self.timestep = 1
         self.current_episode = 1
         self.episodic_reward = 0.0
-        self.previous_state = np.zeros(num_states)
+        self.observation = np.zeros(num_states)
         self.action = np.zeros(num_actions)
         self.previous_action = np.zeros(num_actions)
         self.done = False
@@ -275,37 +275,61 @@ class Environment:
         position_reset.yaw = self.yaw_initial
         self.pub_pos.publish(position_reset) 
 
+    def epoch_done(self):
+        # Get values from the buffer
+        (
+            observation_buffer,
+            action_buffer,
+            advantage_buffer,
+            return_buffer,
+            logprobability_buffer,
+        ) = self.buffer.get()
+
+        for _ in range(train_policy_iterations):
+            kl = train_policy(
+                observation_buffer, action_buffer, logprobability_buffer, advantage_buffer
+            )
+            if kl > 1.5 * target_kl:
+                # Early Stopping
+                break
+        # Update the value function
+        for _ in range(train_value_iterations):
+            train_value_function(observation_buffer, return_buffer)
+
+        # Print mean return and length for each epoch
+        print(
+            f" Epoch: {epoch + 1}. Mean Return: {self.sum_return / self.num_episodes}. Mean Length: {self.sum_timesteps / self.num_episodes}"
+        )
+        actor.save_weights("ppo_actor.h5")
+        critic.save_weights("ppo_critic.h5")
+        print("-----Weights saved-----")
+
+        plt.plot(self.sum_return / self.num_episodes, 'b')
+        plt.ylabel('Score')
+        plt.xlabel('Steps')
+        plt.grid()
+        plt.savefig('ppo_score')
+        print("-----Plots saved-----")
+
     def reset(self):
         # If done, the episode has terminated -> save the episode's reward
-        ep_reward_list.append(self.episodic_reward*self.max_timesteps/self.timestep)
-        # ep_reward_list.append(self.episodic_reward)
+        ep_reward_list.append(self.episodic_reward)
         # Mean episodic reward of last 40 episodes
         avg_reward = np.mean(ep_reward_list[-40:])
         episodes.append(self.current_episode)
-        print("Episode * {} * Cur Reward is ==> {}".format(self.current_episode,self.episodic_reward*self.max_timesteps/self.timestep))
-        # print("Episode * {} * Cur Reward is ==> {}".format(self.current_episode,self.episodic_reward))
+        print("Episode * {} * Cur Reward is ==> {}".format(self.current_episode,self.episodic_reward))
         print("Episode * {} * Avg Reward is ==> {}".format(self.current_episode, avg_reward))
         avg_reward_list.append(avg_reward)
-        # Save the weights every 30 episodes to a file
-        if self.current_episode % 30 == 0.0:
-            actor_model.save_weights("ddpg_actor.h5")
-            critic_model.save_weights("ddpg_critic.h5")
 
-            target_actor.save_weights("ddpg_target_actor.h5")
-            target_critic.save_weights("ddpg_target_critic.h5")    
+        if (self.sum_timesteps> self.steps_per_epoch):
+            last_value = critic(self.observation)
+        else: #exceeded bounds
+            last_value = -1
 
-            print("-----Weights saved-----") 
-
-            pylab.plot(episodes, ep_reward_list, 'b')
-            pylab.plot(episodes, avg_reward_list, 'r')
-            pylab.ylabel('Score', fontsize=18)
-            pylab.xlabel('Steps', fontsize=18)
-            try:
-                pylab.grid(True)
-                pylab.savefig("DDPG_score.png")
-                print("-----Plots saved-----")
-            except OSError:
-                pass            
+        buffer.finish_trajectory(last_value) 
+        self.sum_return += self.episodic_reward
+        self.sum_timesteps += self.timestep
+        self.num_episodes += 1      
 
         # Reset episodic reward and timestep to zero
         self.episodic_reward = 0.0
@@ -314,6 +338,9 @@ class Environment:
         self.done = False
         self.exceeded_bounds = False  
         self.to_start  = False 
+
+        if (self.sum_timesteps> self.steps_per_epoch):
+            self.epoch_done()
 
     def PoseCallback(self,msg):
         self.position = msg
@@ -358,7 +385,7 @@ class Environment:
             if self.exceeded_bounds and not self.done : # Bounds around desired position
                 print("Exceeded Bounds --> Return to initial position")
                 self.done = True 
-            elif self.timestep > self.max_timesteps and not self.done:
+            elif self.sum_timesteps > self.steps_per_epoch and not self.done:
                 print("Reached max number of timesteps --> Return to initial position")   
                 self.done = True 
 
@@ -436,34 +463,18 @@ class Environment:
                     # dont use the above if you are using 'shaping'
                    
                     # print(self.reward)
-                    episode_return += reward
-                    episode_length += 1
+                    self.episodic_reward += self.reward
 
                     # Store obs, act, rew, v_t, logp_pi_t
                     buffer.store(self.observation, self.action, self.reward, self.value_t, self.logprobability_t)
 
-
-               
-                    if self.timestep%200 == 0:
-                        print("--------------Counter %d--------------" % self.timestep) 
-                        print("State: ", self.observation)
-                        print("Next State: ",self.observation_new)
-                        print("Previous action: ",self.previous_action)
-                        print("Action: ",self.action)
-                        print("Position error: ",position_error)
-                        print("Total reward: ",self.reward)
-                    
-                self.previous_action = self.action                  
                 self.logits, self.action = sample_action(observation_new)
                 self.action[0] = np.clip(self.action[0], angle_min, angle_max)
                 self.action[1] = np.clip(self.action[1], angle_min, angle_max)
                 self.action[2] = np.clip(self.action[2], yaw_min, yaw_max)
-
                 self.value_t = critic(self.observation_new)
                 self.logprobability_t = logprobabilities(self.logits, self.action)
-
-                if self.timestep%100 == 0:
-                    print("Next action: ", self.action)
+                self.previous_action = self.action                  
 
                 # Roll, Pitch, Yaw in Degrees
                 roll_des = self.action[0]
@@ -479,7 +490,8 @@ class Environment:
                 self.pub_action.publish(action_mavros)
 
                 self.observation = self.observation_new
-                self.timestep += 1        
+                self.timestep += 1 
+                self.sum_timesteps += 1       
 
 
 if __name__=='__main__':
@@ -516,9 +528,6 @@ if __name__=='__main__':
     # Initialize the policy and the value function optimizers
     policy_optimizer = keras.optimizers.Adam(learning_rate=policy_learning_rate)
     value_optimizer = keras.optimizers.Adam(learning_rate=value_function_learning_rate)
-
-    # Initialize the observation, episode return and episode length
-    observation, episode_return, episode_length = np.zeros(3), 0 ,0
     
     # To store reward history of each episode
     ep_reward_list = []
