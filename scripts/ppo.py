@@ -4,7 +4,6 @@ import numpy as np
 import tensorflow as tf
 from tensorflow import keras
 from tensorflow.keras import layers
-import gym
 import scipy.signal
 import time
 import rospy
@@ -14,7 +13,7 @@ from geometry_msgs.msg import Quaternion
 from mavros_msgs.msg import AttitudeTarget
 from mavros_msgs.msg import PositionTarget
 import math
-import pylab
+
 from stalker.msg import PREDdata
 from BoxToLineClass import line_detector
 
@@ -189,7 +188,7 @@ class Environment:
         self.timestep = 1
         self.current_episode = 0
         self.episodic_reward = 0.0
-        self.observation = np.zeros(num_states)
+        self.observation = np.zeros(observation_dimensions)
         self.action = np.zeros(num_actions)
         self.previous_action = np.zeros(num_actions)
         self.done = False
@@ -477,12 +476,22 @@ class Environment:
                     # Store obs, act, rew, v_t, logp_pi_t
                     buffer.store(self.observation, self.action, self.reward, self.value_t, self.logprobability_t)
 
-                self.logits, self.action = sample_action(observation_new)
+                tf_observation = tf.expand_dims(tf.convert_to_tensor(self.observation_new), 0)
+                tf_action = tf.squeeze(actor(tf_observation))
+                # print(tf.shape(tf_observation))
+                # self.logits, tf_action =  sample_action( tf_observation )
+                self.action = tf_action.numpy() * [angle_max, angle_max, yaw_max]
+                print(self.action)
+                #logits are probabilities for each of the three actions
+                # i need values for both 3 actions tho
+                #* [angle_max, angle_max, yaw_max]
                 self.action[0] = np.clip(self.action[0], angle_min, angle_max)
                 self.action[1] = np.clip(self.action[1], angle_min, angle_max)
                 self.action[2] = np.clip(self.action[2], yaw_min, yaw_max)
-                self.value_t = critic(self.observation_new)
-                self.logprobability_t = logprobabilities(self.logits, self.action)
+
+                self.value_t = critic(tf_observation)
+                # self.logprobability_t = logprobabilities(self.logits, self.action)
+                self.logprobability_t = 0
                 self.previous_action = self.action                  
 
                 # Roll, Pitch, Yaw in Degrees
@@ -505,8 +514,10 @@ class Environment:
 
 if __name__=='__main__':
     rospy.init_node('rl_node', anonymous=True)
+    tf.compat.v1.enable_eager_execution()
 
     # Hyperparameters of the PPO algorithm
+    steps_per_epoch = 4000
     clip_ratio = 0.2
     policy_learning_rate = 3e-4
     value_function_learning_rate = 1e-3
@@ -520,11 +531,20 @@ if __name__=='__main__':
     observation_dimensions = 3
     num_actions = 3
 
+    angle_max = 3.0 
+    angle_min = -3.0 # constraints for commanded roll and pitch
+    yaw_max = 2.0 #how much yaw should change every time
+    yaw_min = -2.0
+
+    max_vel_up = 1.5 # Real one is 2.5
+    max_vel_down = -1.5 # constraints for commanded vertical velocity
+
     # Initialize the buffer
     buffer = Buffer(observation_dimensions, steps_per_epoch)
 
     # Initialize the actor and the critic as keras models
     observation_input = keras.Input(shape=(observation_dimensions,), dtype=tf.float32)
+    # print(tf.shape(observation_input))
     logits = mlp(observation_input, list(hidden_sizes) + [num_actions], tf.tanh, None)
     actor = keras.Model(inputs=observation_input, outputs=logits)
     value = tf.squeeze(

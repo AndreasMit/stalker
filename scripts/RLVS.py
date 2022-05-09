@@ -173,7 +173,7 @@ class Environment:
         self.action = np.zeros(num_actions)
         self.previous_action = np.zeros(num_actions)
         self.done = False
-        self.max_timesteps = 512
+        self.max_timesteps = 1024 # 512
         
         # Define Subscriber !edit type
         self.sub_detector = rospy.Subscriber("/box", PREDdata, self.DetectCallback)
@@ -269,11 +269,11 @@ class Environment:
         avg_reward_list.append(avg_reward)
         # Save the weights every 30 episodes to a file
         if self.current_episode % 30 == 0.0:
-            actor_model.save_weights("checkpoints/st_co6/ddpg_actor.h5")
-            critic_model.save_weights("checkpoints/st_co6/ddpg_critic.h5")
+            actor_model.save_weights("ddpg_actor.h5")
+            critic_model.save_weights("ddpg_critic.h5")
 
-            target_actor.save_weights("checkpoints/st_co6/ddpg_target_actor.h5")
-            target_critic.save_weights("checkpoints/st_co6/ddpg_target_critic.h5")    
+            target_actor.save_weights("ddpg_target_actor.h5")
+            target_critic.save_weights("ddpg_target_critic.h5")    
 
             print("-----Weights saved-----") 
 
@@ -440,7 +440,7 @@ class Environment:
                     # print( abs(self.x_velocity - self.desired_vel_x)/max_velocity *100)
                     # print(int(weight_position*position_error) ,int(weight_velocity*velocity_error), int(weight_action*action), int(weight_yaw*yaw_smooth))
                     # print(int(self.distance), int(self.angle), int(self.x_velocity), 'reward', int(self.reward*100))
-                    print(int(distance_error*100), int(angle_error*100), int(velocity_error*100), int(action*100) ,'reward', int(self.reward*100))
+                    # print(int(distance_error*100), int(angle_error*100), int(velocity_error*100), int(action*100) ,'reward', int(self.reward*100))
                     # Record s,a,r,s'
                     buffer.record((self.previous_state, self.action, self.reward, self.current_state ))
 
@@ -567,11 +567,11 @@ if __name__=='__main__':
     target_critic.set_weights(critic_model.get_weights())
 
     # Load pretrained weights
-    actor_model.load_weights('checkpoints/st_co6/ddpg_actor.h5')
-    critic_model.load_weights('checkpoints/st_co6/ddpg_critic.h5')
+    # actor_model.load_weights('checkpoints/st_co6/ddpg_actor.h5')
+    # critic_model.load_weights('checkpoints/st_co6/ddpg_critic.h5')
 
-    target_actor.load_weights('checkpoints/st_co6/ddpg_target_actor.h5')
-    target_critic.load_weights('checkpoints/st_co6/ddpg_target_critic.h5')
+    # target_actor.load_weights('checkpoints/st_co6/ddpg_target_actor.h5')
+    # target_critic.load_weights('checkpoints/st_co6/ddpg_target_critic.h5')
 
     # Learning rate for actor-critic models
     critic_lr = 0.002
