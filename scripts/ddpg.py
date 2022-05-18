@@ -140,10 +140,11 @@ class Environment:
         # Initialize yaw to zero
         self.initial_pose()
 
+        self.checkpoint  = 0 
         # Reset to initial positions
         self.x_initial = 0.0
         self.y_initial = 0.0
-        self.z_initial = 5.0
+        self.z_initial = 7.0
         self.yaw_initial = 90.0
 
         #initialize current position
@@ -268,33 +269,30 @@ class Environment:
         print("Episode * {} * Avg Reward is ==> {}".format(self.current_episode, avg_reward))
         avg_reward_list.append(avg_reward)
         # Save the weights every 30 episodes to a file
-        if self.current_episode % 30 == 0.0:
-            actor_model.save_weights("ddpg_actor.h5")
-            critic_model.save_weights("ddpg_critic.h5")
+        if self.current_episode % 2 == 0.0:
+            actor_model.save_weights("/home/andreas/andreas/catkin_ws/src/stalker/scripts/checkpoints/st_co"+str(checkpoint)+"/ddpg_actor.h5")
+            critic_model.save_weights("/home/andreas/andreas/catkin_ws/src/stalker/scripts/checkpoints/st_co"+str(checkpoint)+"/ddpg_critic.h5")
+            target_actor.save_weights("/home/andreas/andreas/catkin_ws/src/stalker/scripts/checkpoints/st_co"+str(checkpoint)+"/ddpg_target_actor.h5")
+            target_critic.save_weights("/home/andreas/andreas/catkin_ws/src/stalker/scripts/checkpoints/st_co"+str(checkpoint)+"/ddpg_target_critic.h5")    
+            print("-----Weights saved-----")     
 
-            target_actor.save_weights("ddpg_target_actor.h5")
-            target_critic.save_weights("ddpg_target_critic.h5")    
-
-            print("-----Weights saved-----") 
-
-            # pylab.plot(episodes, ep_reward_list, 'b')
-            # pylab.plot(episodes, avg_reward_list, 'r')
-            # pylab.ylabel('Score', fontsize=18)
-            # pylab.xlabel('Steps', fontsize=18)
-            # try:
-            #     pylab.grid(True)
-            #     pylab.savefig("DDPG_score.png")
-            #     print("-----Plots saved-----")
-            # except OSError:
-            #     pass      
+            plt.figure(0) 
             plt.plot(ep_reward_list, 'b')
             plt.plot(avg_reward_list, 'r')
             plt.ylabel('Score')
             plt.xlabel('Steps')
             plt.grid()
-            plt.savefig('ddpg_score')
+            plt.savefig('/home/andreas/andreas/catkin_ws/src/stalker/scripts/checkpoints/st_co'+str(checkpoint)+'/ddpg_score')
             print("-----Plots saved-----")
-
+            plt.figure(1)
+            plt.scatter(distances, angles, c=rewards)
+            plt.grid()
+            plt.savefig('/home/andreas/andreas/catkin_ws/src/stalker/scripts/checkpoints/st_co'+str(checkpoint)+'/reward_per_error')
+            plt.figure(2)
+            plt.plot(distances)
+            plt.plot(rolls)
+            plt.grid()
+            plt.savefig('/home/andreas/andreas/catkin_ws/src/stalker/scripts/checkpoints/st_co'+str(checkpoint)+'/distance_error_with_action')
 
         # Reset episodic reward and timestep to zero
         self.episodic_reward = 0.0
@@ -449,7 +447,11 @@ class Environment:
                     buffer.learn()
                     # Update the target Networks
                     update_target(target_actor.variables, actor_model.variables, tau)
-                    update_target(target_critic.variables, critic_model.variables, tau)  
+                    update_target(target_critic.variables, critic_model.variables, tau) 
+                    angles.append(self.angle)
+                    distances.append(self.distance)
+                    rewards.append(self.reward)
+                    rolls.append(self.action[0]) 
 
                     
                 self.previous_action = self.action                  
@@ -477,6 +479,9 @@ class Environment:
                 action_mavros.orientation = self.rpy2quat(roll_des,pitch_des,yaw_des)
                 self.pub_action.publish(action_mavros)
 
+                
+                
+
                 self.previous_state = self.current_state
                 self.timestep += 1        
 
@@ -497,8 +502,8 @@ def get_actor():
     last_init = tf.random_uniform_initializer(minval=-0.003, maxval=0.003)
 
     inputs = layers.Input(shape=(num_states,))
-    h1 = layers.Dense(128, activation="tanh")(inputs)
-    h2 = layers.Dense(128, activation="tanh")(h1)    
+    h1 = layers.Dense(256, activation="tanh")(inputs)
+    h2 = layers.Dense(256, activation="tanh")(h1)    
     outputs = layers.Dense(num_actions, activation="tanh", kernel_initializer=last_init)(h2)
 
     # Output of tanh is [-1,1] so multiply with the upper control action
@@ -523,8 +528,8 @@ def get_critic():
     # Both are passed through seperate layer before concatenating
     concat = layers.Concatenate()([state_out, action_out])
 
-    out = layers.Dense(128, activation="relu")(concat)
-    out = layers.Dense(128, activation="relu")(out)
+    out = layers.Dense(256, activation="relu")(concat)
+    out = layers.Dense(256, activation="relu")(out)
     outputs = layers.Dense(1)(out)
 
     # Outputs single value for give state-action
@@ -551,6 +556,10 @@ if __name__=='__main__':
     max_vel_up = 1.5 # Real one is 2.5
     max_vel_down = -1.5 # constraints for commanded vertical velocity
 
+
+    checkpoint = 0 #checkpoint try
+
+
     actor_model = get_actor()
     print("Actor Model Summary")
     print(actor_model.summary())
@@ -567,11 +576,11 @@ if __name__=='__main__':
     target_critic.set_weights(critic_model.get_weights())
 
     # Load pretrained weights
-    # actor_model.load_weights('checkpoints/st_co6/ddpg_actor.h5')
-    # critic_model.load_weights('checkpoints/st_co6/ddpg_critic.h5')
+    actor_model.load_weights('/home/andreas/andreas/catkin_ws/src/stalker/scripts/checkpoints/st_co'+str(checkpoint)+'/ddpg_actor.h5')
+    critic_model.load_weights('/home/andreas/andreas/catkin_ws/src/stalker/scripts/checkpoints/st_co'+str(checkpoint)+'/ddpg_critic.h5')
 
-    # target_actor.load_weights('checkpoints/st_co6/ddpg_target_actor.h5')
-    # target_critic.load_weights('checkpoints/st_co6/ddpg_target_critic.h5')
+    target_actor.load_weights('/home/andreas/andreas/catkin_ws/src/stalker/scripts/checkpoints/st_co'+str(checkpoint)+'/ddpg_target_actor.h5')
+    target_critic.load_weights('/home/andreas/andreas/catkin_ws/src/stalker/scripts/checkpoints/st_co'+str(checkpoint)+'/ddpg_target_critic.h5')
 
     # Learning rate for actor-critic models
     critic_lr = 0.002
@@ -591,6 +600,11 @@ if __name__=='__main__':
     # To store average reward history of last few episodes
     avg_reward_list = [] 
     episodes = []
+
+    distances = []
+    angles = []
+    rewards = []
+    rolls = []
    
     Environment()
 
