@@ -4,7 +4,6 @@ import numpy as np
 import tensorflow as tf
 from tensorflow import keras
 from tensorflow.keras import layers
-import gym
 import scipy.signal
 import time
 import rospy
@@ -14,7 +13,7 @@ from geometry_msgs.msg import Quaternion
 from mavros_msgs.msg import AttitudeTarget
 from mavros_msgs.msg import PositionTarget
 import math
-import pylab
+
 from stalker.msg import PREDdata
 from BoxToLineClass import line_detector
 
@@ -187,13 +186,17 @@ class Environment:
 
         # Initialize variables
         self.timestep = 1
-        self.current_episode = 1
+        self.current_episode = 0
         self.episodic_reward = 0.0
-        self.observation = np.zeros(num_states)
+        self.observation = np.zeros(observation_dimensions)
         self.action = np.zeros(num_actions)
         self.previous_action = np.zeros(num_actions)
         self.done = False
         self.max_timesteps = 512
+
+        self.sum_return = 0.0 
+        self.sum_timesteps = 0 #sum_length
+        self.steps_per_epoch = 4000
         
         # Define Subscriber !edit type
         self.sub_detector = rospy.Subscriber("/box", PREDdata, self.DetectCallback)
@@ -292,24 +295,30 @@ class Environment:
             if kl > 1.5 * target_kl:
                 # Early Stopping
                 break
+
         # Update the value function
         for _ in range(train_value_iterations):
             train_value_function(observation_buffer, return_buffer)
 
         # Print mean return and length for each epoch
         print(
-            f" Epoch: {epoch + 1}. Mean Return: {self.sum_return / self.num_episodes}. Mean Length: {self.sum_timesteps / self.num_episodes}"
+            f" Epoch: {epoch + 1}. Mean Return: {self.sum_return / self.current_episode}. Mean Length: {self.sum_timesteps / self.current_episode}"
         )
+        print('episodes of this epoch', self.current_episode)
         actor.save_weights("ppo_actor.h5")
         critic.save_weights("ppo_critic.h5")
         print("-----Weights saved-----")
 
-        plt.plot(self.sum_return / self.num_episodes, 'b')
+        plt.plot(self.sum_return / self.current_episode, 'b')
         plt.ylabel('Score')
         plt.xlabel('Steps')
         plt.grid()
         plt.savefig('ppo_score')
         print("-----Plots saved-----")
+
+        self.sum_return = 0.0
+        self.current_episode = 0
+        self.sum_timesteps = 0
 
     def reset(self):
         # If done, the episode has terminated -> save the episode's reward
@@ -319,6 +328,7 @@ class Environment:
         episodes.append(self.current_episode)
         print("Episode * {} * Cur Reward is ==> {}".format(self.current_episode,self.episodic_reward))
         print("Episode * {} * Avg Reward is ==> {}".format(self.current_episode, avg_reward))
+        print("timesteps of this episode ", self.timestep)
         avg_reward_list.append(avg_reward)
 
         if (self.sum_timesteps> self.steps_per_epoch):
@@ -327,9 +337,7 @@ class Environment:
             last_value = -1
 
         buffer.finish_trajectory(last_value) 
-        self.sum_return += self.episodic_reward
-        self.sum_timesteps += self.timestep
-        self.num_episodes += 1      
+        self.sum_return += self.episodic_reward 
 
         # Reset episodic reward and timestep to zero
         self.episodic_reward = 0.0
@@ -468,12 +476,22 @@ class Environment:
                     # Store obs, act, rew, v_t, logp_pi_t
                     buffer.store(self.observation, self.action, self.reward, self.value_t, self.logprobability_t)
 
-                self.logits, self.action = sample_action(observation_new)
+                tf_observation = tf.expand_dims(tf.convert_to_tensor(self.observation_new), 0)
+                tf_action = tf.squeeze(actor(tf_observation))
+                # print(tf.shape(tf_observation))
+                # self.logits, tf_action =  sample_action( tf_observation )
+                self.action = tf_action.numpy() * [angle_max, angle_max, yaw_max]
+                print(self.action)
+                #logits are probabilities for each of the three actions
+                # i need values for both 3 actions tho
+                #* [angle_max, angle_max, yaw_max]
                 self.action[0] = np.clip(self.action[0], angle_min, angle_max)
                 self.action[1] = np.clip(self.action[1], angle_min, angle_max)
                 self.action[2] = np.clip(self.action[2], yaw_min, yaw_max)
-                self.value_t = critic(self.observation_new)
-                self.logprobability_t = logprobabilities(self.logits, self.action)
+
+                self.value_t = critic(tf_observation)
+                # self.logprobability_t = logprobabilities(self.logits, self.action)
+                self.logprobability_t = 0
                 self.previous_action = self.action                  
 
                 # Roll, Pitch, Yaw in Degrees
@@ -491,33 +509,42 @@ class Environment:
 
                 self.observation = self.observation_new
                 self.timestep += 1 
-                self.sum_timesteps += 1       
+                self.sum_timesteps += 1     
 
 
 if __name__=='__main__':
     rospy.init_node('rl_node', anonymous=True)
+    tf.compat.v1.enable_eager_execution()
 
     # Hyperparameters of the PPO algorithm
     steps_per_epoch = 4000
-    epochs = 30
-    gamma = 0.99
     clip_ratio = 0.2
     policy_learning_rate = 3e-4
     value_function_learning_rate = 1e-3
     train_policy_iterations = 80
     train_value_iterations = 80
     lam = 0.97
+    gamma = 0.99
     target_kl = 0.01
     hidden_sizes = (64, 64)
 
     observation_dimensions = 3
     num_actions = 3
 
+    angle_max = 3.0 
+    angle_min = -3.0 # constraints for commanded roll and pitch
+    yaw_max = 2.0 #how much yaw should change every time
+    yaw_min = -2.0
+
+    max_vel_up = 1.5 # Real one is 2.5
+    max_vel_down = -1.5 # constraints for commanded vertical velocity
+
     # Initialize the buffer
     buffer = Buffer(observation_dimensions, steps_per_epoch)
 
     # Initialize the actor and the critic as keras models
     observation_input = keras.Input(shape=(observation_dimensions,), dtype=tf.float32)
+    # print(tf.shape(observation_input))
     logits = mlp(observation_input, list(hidden_sizes) + [num_actions], tf.tanh, None)
     actor = keras.Model(inputs=observation_input, outputs=logits)
     value = tf.squeeze(
