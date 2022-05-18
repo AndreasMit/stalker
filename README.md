@@ -1,12 +1,14 @@
 # Stalker
 
-This is the repository for my Masters Diploma project.
-In this project i train a drone to follow a wheeled robot using Reingorcement Learning.
-Drone is running the Ardupilot software while an onboard computer with a ZED camera provide 
-attitude commands via mavlink.
-The whole system is initially simulated in Gazebo using ROS and running SITL.
-Training takes place in simulation and then it is going to be tested in real life conditions.
+This repository is a ROS package implementing the project assigned for my Master thesis.
+The goal of this project is to train a UAV using Reinforcement Learning and Computer Vision to follow 
+a 'leader' which in our case is a wheeled robot (Summit XL).
+The UAV is equipped with an onboard computer and a ZED stereocamera and is using the Ardupilot software.
+The control scheme is applied to the attitude controller for better responsiveness and maneuverability.
+The whole system is initially simulated in the Gazebo simulator using ROS and running SITL.
+Training takes place in the simulation and then will be tested in real life conditions.
 
+You should also need [this auxiliary repository](https://github.com/AndreasMit/vision.git) implementing the workspace for the Computer Vision tasks.
 
 Folders explanation:
 * in build.md you will find instructions on how to setup your system
@@ -19,3 +21,5 @@ Folders explanation:
 	*   teleop.launch : starts joystick control to navigate the drone in the simulation
 	* 	RLVS.launch : starts the RL agent and thus the training
 * /scripts : you will find the different scripts for detection and training.
+* /msg : ROS custom message types
+* /analysis : different plots for better understanding
