@@ -177,7 +177,7 @@ class Environment:
         self.action = np.zeros(num_actions)
         self.previous_action = np.zeros(num_actions)
         self.done = False
-        self.max_timesteps = 1024 # 512
+        self.max_timesteps = 512
         
         # Define Subscriber !edit type
         self.sub_detector = rospy.Subscriber("/box", PREDdata, self.DetectCallback)
@@ -185,7 +185,7 @@ class Environment:
         
         # Define line taken from detector
         self.box = PREDdata()
-        self.desired_pos_z = 5.0
+        self.desired_pos_z = 7.0
         self.desired_vel_x = 1
         self.distance, self.angle = 0, 0
         self.new_pose = False
@@ -272,7 +272,7 @@ class Environment:
         print("Episode * {} * Avg Reward is ==> {}".format(self.current_episode, avg_reward))
         avg_reward_list.append(avg_reward)
         # Save the weights every 30 episodes to a file
-        if self.current_episode % 20== 0.0:
+        if self.current_episode % 4== 0.0:
             actor_model.save_weights("/home/andreas/andreas/catkin_ws/src/stalker/scripts/checkpoints/st_co"+str(checkpoint)+"/ddpg_actor.h5")
             critic_model.save_weights("/home/andreas/andreas/catkin_ws/src/stalker/scripts/checkpoints/st_co"+str(checkpoint)+"/ddpg_critic.h5")
             target_actor.save_weights("/home/andreas/andreas/catkin_ws/src/stalker/scripts/checkpoints/st_co"+str(checkpoint)+"/ddpg_target_actor.h5")
@@ -286,17 +286,16 @@ class Environment:
             plt.xlabel('Steps')
             plt.grid()
             plt.savefig('/home/andreas/andreas/catkin_ws/src/stalker/scripts/checkpoints/st_co'+str(checkpoint)+'/ddpg_score')
-            print("-----Plots saved-----")
             # plt.figure(1)
             # plt.scatter(distances, angles, c=rewards)
             # plt.grid()
             # plt.savefig('/home/andreas/andreas/catkin_ws/src/stalker/scripts/checkpoints/st_co'+str(checkpoint)+'/reward_per_error')
-            # plt.figure(2)
-            # plt.plot(distances, 'b')
+            plt.figure(1)
+            plt.plot(distances, 'b')
             # plt.plot(rolls, 'r')
-            # plt.grid()
-            # plt.savefig('/home/andreas/andreas/catkin_ws/src/stalker/scripts/checkpoints/st_co'+str(checkpoint)+'/distance_error_with_action')
-            
+            plt.grid()
+            plt.savefig('/home/andreas/andreas/catkin_ws/src/stalker/scripts/checkpoints/st_co'+str(checkpoint)+'/distance_error')
+            print("-----Plots saved-----")
 
         # Reset episodic reward and timestep to zero
         self.episodic_reward = 0.0
@@ -337,13 +336,7 @@ class Environment:
             # print(self.angle, self.yaw)
             if self.distance == 10000 and self.angle == 0 :
                 self.exceeded_bounds = True
-            elif abs(self.distance) < self.good_distance and abs(self.angle) < self.good_angle and self.angle!=0:
-                # print('good position')
-                # print(self.distance, self.angle)
-                self.x_initial = self.x_position
-                self.y_initial = self.y_position
-                # self.z_initial = self.z_position #keep it to 5 meters
-                self.yaw_initial = self.yaw
+            #i dont need to go to a new start in this scenario
 
             # Check done signal which indicates whether s' is terminal. The episode is terminated when the quadrotor is out of bounds or after a max # of timesteps
             if self.exceeded_bounds and not self.done : # Bounds around desired position
@@ -352,6 +345,7 @@ class Environment:
             elif self.timestep > self.max_timesteps and not self.done:
                 print("Reached max number of timesteps --> Return to initial position")   
                 self.done = True 
+                self.reward += 100 #to see the difference
 
             if self.done:
                 # instead go to last frame that had detection
@@ -380,7 +374,7 @@ class Environment:
 
                 #STATE
                 #normalized values only -> [0,1]
-                self.current_state = np.array([self.distance/max_distance , self.angle/max_angle , self.x_velocity/max_velocity])
+                self.current_state = np.array([self.distance/max_distance ])#, self.angle/max_angle , self.x_velocity/max_velocity])
 
                 # Compute reward from the 2nd timestep and after
                 if self.timestep > 1:
@@ -437,7 +431,8 @@ class Environment:
                     self.reward += -weight_action*action
                     # self.reward += -weight_yaw*yaw_smooth
                     self.reward = self.reward/100 # -> reward is between [-1,0]
-                
+                    # print(self.reward)
+
                     # Record s,a,r,s'
                     buffer.record((self.previous_state, self.action, self.reward, self.current_state ))
 
@@ -452,7 +447,7 @@ class Environment:
 
 
                     angles.append(self.angle)
-                    distances.append(self.distance)
+                    distances.append(self.distance/max_distance)
                     # distances.append(self.distance-self.prev_distance)
                     rewards.append(self.reward)
                     # rolls.append(self.action*10)
@@ -508,8 +503,8 @@ def get_actor():
     last_init = tf.random_uniform_initializer(minval=-0.003, maxval=0.003)
 
     inputs = layers.Input(shape=(num_states,))
-    h1 = layers.Dense(64, activation="relu")(inputs)
-    h2 = layers.Dense(64, activation="relu")(h1)    
+    h1 = layers.Dense(128, activation="tanh")(inputs)
+    h2 = layers.Dense(128, activation="tanh")(h1)    
     outputs = layers.Dense(num_actions, activation="tanh", kernel_initializer=last_init)(h2)
 
     # Output of tanh is [-1,1] so multiply with the upper control action
@@ -534,8 +529,8 @@ def get_critic():
     # Both are passed through seperate layer before concatenating
     concat = layers.Concatenate()([state_out, action_out])
 
-    out = layers.Dense(64, activation="relu")(concat)
-    out = layers.Dense(64, activation="relu")(out)
+    out = layers.Dense(128, activation="relu")(concat)
+    out = layers.Dense(128, activation="relu")(out)
     outputs = layers.Dense(1)(out)
 
     # Outputs single value for give state-action
@@ -552,7 +547,7 @@ if __name__=='__main__':
     tf.compat.v1.enable_eager_execution()
 
     num_actions = 1 # commanded vertical velocity, roll and yaw
-    num_states = 3  
+    num_states = 1
 
     angle_max = 3.0 
     angle_min = -3.0 # constraints for commanded roll and pitch
@@ -563,7 +558,7 @@ if __name__=='__main__':
     max_vel_down = -1.5 # constraints for commanded vertical velocity
 
 
-    checkpoint = 1 #checkpoint try
+    checkpoint = 5 #checkpoint try
 
 
     actor_model = get_actor()
@@ -582,11 +577,11 @@ if __name__=='__main__':
     target_critic.set_weights(critic_model.get_weights())
 
     # Load pretrained weights
-    actor_model.load_weights('/home/andreas/andreas/catkin_ws/src/stalker/scripts/checkpoints/st_co'+str(checkpoint)+'/ddpg_actor.h5')
-    critic_model.load_weights('/home/andreas/andreas/catkin_ws/src/stalker/scripts/checkpoints/st_co'+str(checkpoint)+'/ddpg_critic.h5')
+    # actor_model.load_weights('/home/andreas/andreas/catkin_ws/src/stalker/scripts/checkpoints/st_co'+str(checkpoint)+'/ddpg_actor.h5')
+    # critic_model.load_weights('/home/andreas/andreas/catkin_ws/src/stalker/scripts/checkpoints/st_co'+str(checkpoint)+'/ddpg_critic.h5')
 
-    target_actor.load_weights('/home/andreas/andreas/catkin_ws/src/stalker/scripts/checkpoints/st_co'+str(checkpoint)+'/ddpg_target_actor.h5')
-    target_critic.load_weights('/home/andreas/andreas/catkin_ws/src/stalker/scripts/checkpoints/st_co'+str(checkpoint)+'/ddpg_target_critic.h5')
+    # target_actor.load_weights('/home/andreas/andreas/catkin_ws/src/stalker/scripts/checkpoints/st_co'+str(checkpoint)+'/ddpg_target_actor.h5')
+    # target_critic.load_weights('/home/andreas/andreas/catkin_ws/src/stalker/scripts/checkpoints/st_co'+str(checkpoint)+'/ddpg_target_critic.h5')
 
     # Learning rate for actor-critic models
     critic_lr = 0.002

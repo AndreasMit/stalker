@@ -1,0 +1,3 @@
+64 neurons
+tanh on actor
+roll action

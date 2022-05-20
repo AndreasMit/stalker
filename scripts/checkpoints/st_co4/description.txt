@@ -1,0 +1,4 @@
+ 32 neurons - used tanh this time, seems a bit better 
+fast convergence and then it kinda diverges?
+yaw action
+new bounds set for case 0 degrees on the edge 

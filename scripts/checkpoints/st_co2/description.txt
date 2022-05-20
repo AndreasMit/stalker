@@ -1,0 +1,3 @@
+64 neurons
+yaw action
+new bounds set for case 0 degrees on the edge 

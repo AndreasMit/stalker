@@ -1,0 +1,6 @@
+try 1
+64 neurons
+tanh on actor
+
+try2 
+256 neurons

@@ -18,6 +18,8 @@ import pylab
 from stalker.msg import PREDdata
 from BoxToLineClass import line_detector
 
+import random
+
 #-------------------------------- NOISE CLASS --------------------------------#
 
 
@@ -184,7 +186,7 @@ class Environment:
         
         # Define line taken from detector
         self.box = PREDdata()
-        self.desired_pos_z = 7.0
+        self.desired_pos_z = 5.0
         self.desired_vel_x = 1
         self.distance, self.angle = 0, 0
         self.new_pose = False
@@ -255,6 +257,8 @@ class Environment:
         position_reset.position.x = self.x_initial
         position_reset.position.y = self.y_initial
         position_reset.position.z = self.z_initial
+        #random initial yaw to explore all cases
+        self.yaw_initial = random.random()* 90
         position_reset.yaw = self.yaw_initial
         self.pub_pos.publish(position_reset) 
 
@@ -271,30 +275,30 @@ class Environment:
         print("Episode * {} * Avg Reward is ==> {}".format(self.current_episode, avg_reward))
         avg_reward_list.append(avg_reward)
         # Save the weights every 30 episodes to a file
-        if self.current_episode % 2 == 0.0:
-            actor_model.save_weights("/home/andreas/andreas/catkin_ws/src/stalker/scripts/checkpoints/st_co"+str(checkpoint)+"/ddpg_actor"+str(ntry)+".h5")
-            critic_model.save_weights("/home/andreas/andreas/catkin_ws/src/stalker/scripts/checkpoints/st_co"+str(checkpoint)+"/ddpg_critic"+str(ntry)+".h5")
-            target_actor.save_weights("/home/andreas/andreas/catkin_ws/src/stalker/scripts/checkpoints/st_co"+str(checkpoint)+"/ddpg_target_actor"+str(ntry)+".h5")
-            target_critic.save_weights("/home/andreas/andreas/catkin_ws/src/stalker/scripts/checkpoints/st_co"+str(checkpoint)+"/ddpg_target_critic"+str(ntry)+".h5")    
+        if self.current_episode % 4== 0.0:
+            actor_model.save_weights("/home/andreas/andreas/catkin_ws/src/stalker/scripts/checkpoints/st_co"+str(checkpoint)+"/ddpg_actor.h5")
+            critic_model.save_weights("/home/andreas/andreas/catkin_ws/src/stalker/scripts/checkpoints/st_co"+str(checkpoint)+"/ddpg_critic.h5")
+            target_actor.save_weights("/home/andreas/andreas/catkin_ws/src/stalker/scripts/checkpoints/st_co"+str(checkpoint)+"/ddpg_target_actor.h5")
+            target_critic.save_weights("/home/andreas/andreas/catkin_ws/src/stalker/scripts/checkpoints/st_co"+str(checkpoint)+"/ddpg_target_critic.h5")    
             print("-----Weights saved-----")     
 
             plt.figure(0) 
             plt.plot(ep_reward_list, 'b')
             plt.plot(avg_reward_list, 'r')
             plt.ylabel('Score')
-            plt.xlabel('Episodes')
+            plt.xlabel('Steps')
             plt.grid()
-            plt.savefig('/home/andreas/andreas/catkin_ws/src/stalker/scripts/checkpoints/st_co'+str(checkpoint)+'/ddpg_score'+str(ntry)+'')
+            plt.savefig('/home/andreas/andreas/catkin_ws/src/stalker/scripts/checkpoints/st_co'+str(checkpoint)+'/ddpg_score')
             print("-----Plots saved-----")
-            plt.figure(1)
-            plt.scatter(distances, angles, c=rewards)
-            plt.grid()
-            plt.savefig('/home/andreas/andreas/catkin_ws/src/stalker/scripts/checkpoints/st_co'+str(checkpoint)+'/reward_per_error'+str(ntry)+'')
+            # plt.figure(1)
+            # plt.scatter(distances, angles, c=rewards)
+            # plt.grid()
+            # plt.savefig('/home/andreas/andreas/catkin_ws/src/stalker/scripts/checkpoints/st_co'+str(checkpoint)+'/reward_per_error')
             plt.figure(2)
-            plt.plot(distances, 'b')
-            plt.plot(angles, 'r')
+            plt.plot(angles, 'b')
             plt.grid()
-            plt.savefig('/home/andreas/andreas/catkin_ws/src/stalker/scripts/checkpoints/st_co'+str(checkpoint)+'/distance_and_angle'+str(ntry)+'')
+            plt.savefig('/home/andreas/andreas/catkin_ws/src/stalker/scripts/checkpoints/st_co'+str(checkpoint)+'/angle_error')
+            
 
         # Reset episodic reward and timestep to zero
         self.episodic_reward = 0.0
@@ -335,18 +339,9 @@ class Environment:
             # print(self.angle, self.yaw)
             if self.distance == 10000 and self.angle == 0 :
                 self.exceeded_bounds = True
-            elif abs(self.angle) < 0.5 and abs(self.distance) > 270: # this case is when the box is on the edge of the image and its not really vertical
+            if abs(self.angle) < 0.5 and abs(self.distance) > 270:
                 self.exceeded_bounds = True
-            elif abs(self.angle) > 89.5: # this includes being vertical to the pavement but also cases when the detection is on the edge of image and is not reliable
-                self.exceeded_bounds = True 
-
-            elif abs(self.distance) < self.good_distance and abs(self.angle) < self.good_angle and self.angle!=0:
-                # print('good position')
-                # print(self.distance, self.angle)
-                self.x_initial = self.x_position
-                self.y_initial = self.y_position
-                # self.z_initial = self.z_position #keep it to 7 meters
-                self.yaw_initial = self.yaw
+            #i dont need to go to a new start in this scenario
 
             # Check done signal which indicates whether s' is terminal. The episode is terminated when the quadrotor is out of bounds or after a max # of timesteps
             if self.exceeded_bounds and not self.done : # Bounds around desired position
@@ -355,15 +350,9 @@ class Environment:
             elif self.timestep > self.max_timesteps and not self.done:
                 print("Reached max number of timesteps --> Return to initial position")   
                 self.done = True 
-                self.reward += 100
+                
 
             if self.done:
-                if self.timestep == 1: #for some reason we have a fault detection of good position
-                    self.x_initial = 0.0
-                    self.y_initial = 0.0
-                    self.z_initial = 7.0
-                    self.yaw_initial = 90.0
-
                 # instead go to last frame that had detection
                 if not self.to_start:
                     self.go_to_start()
@@ -390,40 +379,43 @@ class Environment:
 
                 #STATE
                 #normalized values only -> [0,1]
-                self.current_state = np.array([self.distance/max_distance , self.angle/max_angle , self.x_velocity/max_velocity])
+                self.current_state = np.array([ self.angle/max_angle])
 
                 # Compute reward from the 2nd timestep and after
                 if self.timestep > 1:
 
                     #REWARD
+
+                    #penalize big angle and distance from center
                     # angle_error = max(abs(self.angle)-8,0)/max_angle
                     angle_error = abs(self.angle)/max_angle
 
-                    #if angle = 90?? about distance x
+                    #if angle = 90??
 
                     # distance_error = max(abs(self.distance)-40,0)/max_distance
                     distance_error = abs(self.distance)/max_distance
-                    position_error = distance_error + angle_error 
+                    # position_error = distance_error + angle_error 
                     # position_error = np.sqrt(distance_error) +np.sqrt(angle_error)
-                    # position_error = distance_error**2 + angle_error**2
+                    position_error = angle_error
                     weight_position = 100
                     #max 200
                     # print(angle_error, abs(self.distance))
 
                     #penalize velocity error
-                    velocity_error = abs(self.x_velocity - self.desired_vel_x)/max_velocity
-                    weight_velocity = 30
+                    # velocity_error = abs(self.x_velocity - self.desired_vel_x)/max_velocity
+                    # weight_velocity = 50
                     #max 50
 
                     # penalize big roll and pitch values
                     #could do it with sqrt
-                    action = abs(self.action[0])/angle_max + abs(self.action[1])/angle_max 
-                    weight_action = 1
+                    # action = abs(self.action[0])/angle_max + abs(self.action[1])/angle_max 
+                    weight_action = 10
+                    action = abs(self.action)/yaw_max
                     #max 2
 
                     #penalize big yaw changes
-                    yaw_smooth = abs(self.action[2])/yaw_max
-                    weight_yaw = 40
+                    # yaw_smooth = abs(self.action[2])/yaw_max
+                    # weight_yaw = 40
 
                     #penalize changes in yaw
                     # yaw_smooth = abs(self.action[2]-self.previous_action[2])/yaw_max
@@ -434,51 +426,52 @@ class Environment:
                     # print(weight_position*position_error, weight_velocity*velocity_error, weight_action*action, weight_yaw*yaw_smooth )
                     # print(self.action[0], self.action[1], self.action[2])
                     # print(self.yaw)
+
                     #use minus because we want to maximize reward
                     self.reward  = -weight_position*position_error 
-                    self.reward += -weight_velocity*velocity_error
+                    # self.reward += -weight_velocity*velocity_error
                     self.reward += -weight_action*action
-                    self.reward += -weight_yaw*yaw_smooth
-                    self.reward = self.reward/300 # -> reward is between [-1,0]
-                    # self.reward = min(self.reward+0.15, 0 )
-                    # dont use the above if you are using 'shaping'
-                    # print(position_error, velocity_error, action, yaw_smooth)
-                    # print( distance_error *100, angle_error *100)
-                    # print( abs(self.x_velocity - self.desired_vel_x)/max_velocity *100)
-                    # print(int(weight_position*position_error) ,int(weight_velocity*velocity_error), int(weight_action*action), int(weight_yaw*yaw_smooth))
-                    # print(int(self.distance), int(self.angle), int(self.x_velocity), 'reward', int(self.reward*100))
-                    # print(int(distance_error*100), int(angle_error*100), int(velocity_error*100), int(action*100) ,'reward', int(self.reward*100))
+                    # self.reward += -weight_yaw*yaw_smooth
+                    self.reward = self.reward/100 # -> reward is between [-1,0]
+                    print(self.reward)
+
                     # Record s,a,r,s'
                     buffer.record((self.previous_state, self.action, self.reward, self.current_state ))
 
                     self.episodic_reward += self.reward
+
+
                     # Optimize the NN weights using gradient descent
                     buffer.learn()
                     # Update the target Networks
                     update_target(target_actor.variables, actor_model.variables, tau)
-                    update_target(target_critic.variables, critic_model.variables, tau) 
-                    angles.append(self.angle/max_angle)
-                    distances.append(self.distance/max_distance)
-                    rewards.append(self.reward)
-                    rolls.append(self.action[0]) 
+                    update_target(target_critic.variables, critic_model.variables, tau)
 
+
+                    angles.append(self.angle)
+                    distances.append(self.distance)
+                    # distances.append(self.distance-self.prev_distance)
+                    rewards.append(self.reward)
+                    # rolls.append(self.action*10)
+                    # rolls.append(self.action*300)
                     
-                self.previous_action = self.action                  
+                self.previous_action = self.action                 
 
                 # Pick an action according to actor network
                 tf_current_state = tf.expand_dims(tf.convert_to_tensor(self.current_state), 0)
                 tf_action = tf.squeeze(actor_model(tf_current_state))
                 noise = ou_noise()
                 self.action = tf_action.numpy() + noise  # Add exploration strategy
+                self.action = self.action[0]
                 # print(self.action)
-                self.action[0] = np.clip(self.action[0], angle_min, angle_max)
-                self.action[1] = np.clip(self.action[1], angle_min, angle_max)
-                self.action[2] = np.clip(self.action[2], yaw_min, yaw_max)
+                self.action = np.clip(self.action, yaw_min, yaw_max)
+                # self.action[1] = np.clip(self.action[1], angle_min, angle_max)
+                # self.action[2] = np.clip(self.action[2], yaw_min, yaw_max)
 
                 # Roll, Pitch, Yaw in Degrees
-                roll_des = self.action[0]
-                pitch_des = self.action[1] 
-                yaw_des = self.action[2] + self.yaw  #differences in yaw
+                roll_des = 0
+                pitch_des = 0
+                yaw_des = self.action + self.yaw  #differences in yaw
                 # print(yaw_des)
 
                 # Convert to mavros message and publish desired attitude
@@ -487,9 +480,6 @@ class Environment:
                 action_mavros.thrust = 0.5
                 action_mavros.orientation = self.rpy2quat(roll_des,pitch_des,yaw_des)
                 self.pub_action.publish(action_mavros)
-
-                
-                
 
                 self.previous_state = self.current_state
                 self.timestep += 1        
@@ -511,12 +501,12 @@ def get_actor():
     last_init = tf.random_uniform_initializer(minval=-0.003, maxval=0.003)
 
     inputs = layers.Input(shape=(num_states,))
-    h1 = layers.Dense(256, activation="tanh")(inputs)
-    h2 = layers.Dense(256, activation="tanh")(h1)    
+    h1 = layers.Dense(64, activation="tanh")(inputs)
+    h2 = layers.Dense(64, activation="tanh")(h1)    
     outputs = layers.Dense(num_actions, activation="tanh", kernel_initializer=last_init)(h2)
 
     # Output of tanh is [-1,1] so multiply with the upper control action
-    outputs = outputs * [angle_max, angle_max, yaw_max]
+    outputs = outputs * yaw_max
         
     model = tf.keras.Model(inputs, outputs)
 
@@ -537,8 +527,8 @@ def get_critic():
     # Both are passed through seperate layer before concatenating
     concat = layers.Concatenate()([state_out, action_out])
 
-    out = layers.Dense(256, activation="relu")(concat)
-    out = layers.Dense(256, activation="relu")(out)
+    out = layers.Dense(64, activation="relu")(concat)
+    out = layers.Dense(64, activation="relu")(out)
     outputs = layers.Dense(1)(out)
 
     # Outputs single value for give state-action
@@ -554,8 +544,8 @@ if __name__=='__main__':
     # can be accessed as numpy.ndarray`s through the numpy() method.
     tf.compat.v1.enable_eager_execution()
 
-    num_actions = 3 # commanded vertical velocity, roll and yaw
-    num_states = 3  
+    num_actions = 1 # commanded vertical velocity, roll and yaw
+    num_states = 1
 
     angle_max = 3.0 
     angle_min = -3.0 # constraints for commanded roll and pitch
@@ -566,8 +556,8 @@ if __name__=='__main__':
     max_vel_down = -1.5 # constraints for commanded vertical velocity
 
 
-    checkpoint = 0 #checkpoint try
-    ntry = 1
+    checkpoint = 2 #checkpoint try
+
 
     actor_model = get_actor()
     print("Actor Model Summary")
@@ -585,11 +575,11 @@ if __name__=='__main__':
     target_critic.set_weights(critic_model.get_weights())
 
     # Load pretrained weights
-    # actor_model.load_weights('/home/andreas/andreas/catkin_ws/src/stalker/scripts/checkpoints/st_co'+str(checkpoint)+'/ddpg_actor'+str(ntry)+'.h5')
-    # critic_model.load_weights('/home/andreas/andreas/catkin_ws/src/stalker/scripts/checkpoints/st_co'+str(checkpoint)+'/ddpg_critic'+str(ntry)+'.h5')
+    actor_model.load_weights('/home/andreas/andreas/catkin_ws/src/stalker/scripts/checkpoints/st_co'+str(checkpoint)+'/ddpg_actor.h5')
+    critic_model.load_weights('/home/andreas/andreas/catkin_ws/src/stalker/scripts/checkpoints/st_co'+str(checkpoint)+'/ddpg_critic.h5')
 
-    # target_actor.load_weights('/home/andreas/andreas/catkin_ws/src/stalker/scripts/checkpoints/st_co'+str(checkpoint)+'/ddpg_target_actor'+str(ntry)+'.h5')
-    # target_critic.load_weights('/home/andreas/andreas/catkin_ws/src/stalker/scripts/checkpoints/st_co'+str(checkpoint)+'/ddpg_target_critic'+str(ntry)+'.h5')
+    target_actor.load_weights('/home/andreas/andreas/catkin_ws/src/stalker/scripts/checkpoints/st_co'+str(checkpoint)+'/ddpg_target_actor.h5')
+    target_critic.load_weights('/home/andreas/andreas/catkin_ws/src/stalker/scripts/checkpoints/st_co'+str(checkpoint)+'/ddpg_target_critic.h5')
 
     # Learning rate for actor-critic models
     critic_lr = 0.002

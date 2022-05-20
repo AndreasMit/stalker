@@ -1,0 +1,3 @@
+32 neurons - also relu in activation (just curious)
+yaw action
+new bounds set for case 0 degrees on the edge 
