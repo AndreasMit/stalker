@@ -3,6 +3,8 @@
 import rospy
 import tensorflow as tf
 import numpy as np
+import matplotlib
+matplotlib.use('agg')
 import matplotlib.pyplot as plt
 from nav_msgs.msg import Odometry
 from geometry_msgs.msg import Point
@@ -71,6 +73,8 @@ class Environment:
         self.new_pose = False
 
         self.Line = line_detector()
+
+        self.timestep = 0 
 
 
     def initial_pose(self):
@@ -175,13 +179,7 @@ class Environment:
             # print(self.angle, self.yaw)
             if self.distance == 10000 and self.angle == 0 :
                 self.exceeded_bounds = True
-            elif abs(self.distance) < self.good_distance and abs(self.angle) < self.good_angle and self.angle!=0:
-                # print('good position')
-                # print(self.distance, self.angle)
-                self.x_initial = self.x_position
-                self.y_initial = self.y_position
-                # self.z_initial = self.z_position #keep it to 5 meters
-                self.yaw_initial = self.yaw
+            #no need for new starting position
 
             if self.exceeded_bounds and not self.done:
                 print("Exceeded Bounds --> Return to initial position")
@@ -213,21 +211,29 @@ class Environment:
 
                 #STATE
                 #normalized values only -> [0,1]
-                self.current_state = np.array([self.distance/max_distance , self.angle/max_angle , self.x_velocity/max_velocity])
+                self.current_state = np.array([self.distance/max_distance, min(self.y_velocity/max_velocity, 1)] )# , self.angle/max_angle , self.x_velocity/max_velocity])
                  
                 # Pick an action according to actor network
                 tf_current_state = tf.expand_dims(tf.convert_to_tensor(self.current_state), 0)
                 tf_action = tf.squeeze(target_actor(tf_current_state))
                 self.action = tf_action.numpy()
+                # self.action = self.action[0]
                 # print(self.action)
-                self.action[0] = np.clip(self.action[0], angle_min, angle_max)
-                self.action[1] = np.clip(self.action[1], angle_min, angle_max)
-                self.action[2] = np.clip(self.action[2], yaw_min, yaw_max)
+                self.action = np.clip(self.action, angle_min, angle_max)
+                distances.append(self.distance/max_distance)
+                if self.timestep % 30 == 0:
+                    plt.figure(0)
+                    plt.plot(distances, 'b')
+                    plt.grid()
+                    plt.savefig('/home/andreas/andreas/catkin_ws/src/stalker/scripts/checkpoints/st_co'+str(checkpoint)+'/infer_distance_error')
+                    print(self.z_position)
+                    
 
+                self.timestep += 1
                 # Roll, Pitch, Yaw in Degrees
-                roll_des = self.action[0]
-                pitch_des = self.action[1] 
-                yaw_des = self.action[2] + self.yaw  #differences in yaw
+                roll_des = self.action
+                pitch_des = 0 
+                yaw_des = 90 #self.action[2] + self.yaw  #differences in yaw
                 # print(yaw_des)
 
                 # Convert to mavros message and publish desired attitude
@@ -244,12 +250,12 @@ def get_actor():
     last_init = tf.random_uniform_initializer(minval=-0.003, maxval=0.003)
 
     inputs = layers.Input(shape=(num_states,))
-    h1 = layers.Dense(256, activation="tanh")(inputs)
-    h2 = layers.Dense(256, activation="tanh")(h1)    
+    h1 = layers.Dense(32, activation="tanh")(inputs)
+    h2 = layers.Dense(32, activation="tanh")(h1)    
     outputs = layers.Dense(num_actions, activation="tanh", kernel_initializer=last_init)(h2)
 
     # Output of tanh is [-1,1] so multiply with the upper control action
-    outputs = outputs * [angle_max, angle_max, yaw_max]
+    outputs = outputs * angle_max
         
     model = tf.keras.Model(inputs, outputs)
 
@@ -260,18 +266,22 @@ if __name__=='__main__':
     rospy.init_node('rl_node', anonymous=True)
     tf.compat.v1.enable_eager_execution()
 
-    num_actions = 3 
-    num_states = 3  
+    num_actions = 1
+    num_states = 2
 
     angle_max = 3.0 
     angle_min = -3.0 # constraints for commanded roll and pitch
     yaw_max = 2.0 #how much yaw should change every time
     yaw_min = -2.0
 
-    target_actor = get_actor()
-    target_actor.load_weights('checkpoints/st_co0/ddpg_actor.h5')
+    checkpoint = 12
 
+    target_actor = get_actor()
+    target_actor.load_weights('/home/andreas/andreas/catkin_ws/src/stalker/scripts/checkpoints/st_co'+str(checkpoint)+'/ddpg_target_actor.h5')
+
+    distances = []
     Environment()
+    
 
     r = rospy.Rate(20)
     while not rospy.is_shutdown:

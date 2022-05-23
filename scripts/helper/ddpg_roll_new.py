@@ -272,7 +272,7 @@ class Environment:
         print("Episode * {} * Avg Reward is ==> {}".format(self.current_episode, avg_reward))
         avg_reward_list.append(avg_reward)
         # Save the weights every 30 episodes to a file
-        if self.current_episode % 4== 0.0:
+        if self.current_episode % 8== 0.0:
             actor_model.save_weights("/home/andreas/andreas/catkin_ws/src/stalker/scripts/checkpoints/st_co"+str(checkpoint)+"/ddpg_actor.h5")
             critic_model.save_weights("/home/andreas/andreas/catkin_ws/src/stalker/scripts/checkpoints/st_co"+str(checkpoint)+"/ddpg_critic.h5")
             target_actor.save_weights("/home/andreas/andreas/catkin_ws/src/stalker/scripts/checkpoints/st_co"+str(checkpoint)+"/ddpg_target_actor.h5")
@@ -292,9 +292,9 @@ class Environment:
             # plt.savefig('/home/andreas/andreas/catkin_ws/src/stalker/scripts/checkpoints/st_co'+str(checkpoint)+'/reward_per_error')
             plt.figure(1)
             plt.plot(distances, 'b')
-            # plt.plot(rolls, 'r')
+            plt.plot(yvels, 'r')
             plt.grid()
-            plt.savefig('/home/andreas/andreas/catkin_ws/src/stalker/scripts/checkpoints/st_co'+str(checkpoint)+'/distance_error')
+            plt.savefig('/home/andreas/andreas/catkin_ws/src/stalker/scripts/checkpoints/st_co'+str(checkpoint)+'/distance_yvel_error')
             print("-----Plots saved-----")
 
         # Reset episodic reward and timestep to zero
@@ -374,7 +374,7 @@ class Environment:
 
                 #STATE
                 #normalized values only -> [0,1]
-                self.current_state = np.array([self.distance/max_distance ])#, self.angle/max_angle , self.x_velocity/max_velocity])
+                self.current_state = np.array([self.distance/max_distance , min(self.y_velocity/max_velocity, 1)])#, self.angle/max_angle , self.x_velocity/max_velocity])
 
                 # Compute reward from the 2nd timestep and after
                 if self.timestep > 1:
@@ -400,8 +400,9 @@ class Environment:
                     # print(angle_error, abs(self.distance))
 
                     #penalize velocity error
+                    velocity_error = min(abs(self.y_velocity)/max_velocity, 1)
                     # velocity_error = abs(self.x_velocity - self.desired_vel_x)/max_velocity
-                    # weight_velocity = 50
+                    weight_velocity = 30
                     #max 50
 
                     # penalize big roll and pitch values
@@ -427,10 +428,10 @@ class Environment:
 
                     #use minus because we want to maximize reward
                     self.reward  = -weight_position*position_error 
-                    # self.reward += -weight_velocity*velocity_error
+                    self.reward += -weight_velocity*velocity_error
                     self.reward += -weight_action*action
                     # self.reward += -weight_yaw*yaw_smooth
-                    self.reward = self.reward/100 # -> reward is between [-1,0]
+                    self.reward = self.reward/140 # -> reward is between [-1,0]
                     # print(self.reward)
 
                     # Record s,a,r,s'
@@ -450,6 +451,7 @@ class Environment:
                     distances.append(self.distance/max_distance)
                     # distances.append(self.distance-self.prev_distance)
                     rewards.append(self.reward)
+                    yvels.append(min(self.y_velocity/max_velocity, 1))
                     # rolls.append(self.action*10)
                     # rolls.append(self.action*300)
                     
@@ -503,8 +505,8 @@ def get_actor():
     last_init = tf.random_uniform_initializer(minval=-0.003, maxval=0.003)
 
     inputs = layers.Input(shape=(num_states,))
-    h1 = layers.Dense(128, activation="tanh")(inputs)
-    h2 = layers.Dense(128, activation="tanh")(h1)    
+    h1 = layers.Dense(32, activation="tanh")(inputs)
+    h2 = layers.Dense(32, activation="tanh")(h1)    
     outputs = layers.Dense(num_actions, activation="tanh", kernel_initializer=last_init)(h2)
 
     # Output of tanh is [-1,1] so multiply with the upper control action
@@ -529,8 +531,8 @@ def get_critic():
     # Both are passed through seperate layer before concatenating
     concat = layers.Concatenate()([state_out, action_out])
 
-    out = layers.Dense(128, activation="relu")(concat)
-    out = layers.Dense(128, activation="relu")(out)
+    out = layers.Dense(32, activation="relu")(concat)
+    out = layers.Dense(32, activation="relu")(out)
     outputs = layers.Dense(1)(out)
 
     # Outputs single value for give state-action
@@ -547,7 +549,7 @@ if __name__=='__main__':
     tf.compat.v1.enable_eager_execution()
 
     num_actions = 1 # commanded vertical velocity, roll and yaw
-    num_states = 1
+    num_states = 2
 
     angle_max = 3.0 
     angle_min = -3.0 # constraints for commanded roll and pitch
@@ -558,7 +560,7 @@ if __name__=='__main__':
     max_vel_down = -1.5 # constraints for commanded vertical velocity
 
 
-    checkpoint = 5 #checkpoint try
+    checkpoint = 12 #checkpoint try
 
 
     actor_model = get_actor()
@@ -584,8 +586,8 @@ if __name__=='__main__':
     # target_critic.load_weights('/home/andreas/andreas/catkin_ws/src/stalker/scripts/checkpoints/st_co'+str(checkpoint)+'/ddpg_target_critic.h5')
 
     # Learning rate for actor-critic models
-    critic_lr = 0.002
-    actor_lr = 0.001
+    critic_lr = 0.001
+    actor_lr = 0.0001
 
     # Define optimizer
     critic_optimizer = tf.keras.optimizers.Adam(critic_lr)
@@ -606,7 +608,8 @@ if __name__=='__main__':
     angles = []
     rewards = []
     rolls = []
-   
+    yvels = []
+
     Environment()
 
     # buffer = Buffer(100000, 1000)

@@ -358,7 +358,7 @@ class Environment:
                 self.reward += 100
 
             if self.done:
-                if self.timestep == 1: #for some reason we have a fault detection of good position
+                if self.timestep < 10: #for some reason we have a false detection of good position
                     self.x_initial = 0.0
                     self.y_initial = 0.0
                     self.z_initial = 7.0
@@ -592,8 +592,8 @@ if __name__=='__main__':
     # target_critic.load_weights('/home/andreas/andreas/catkin_ws/src/stalker/scripts/checkpoints/st_co'+str(checkpoint)+'/ddpg_target_critic'+str(ntry)+'.h5')
 
     # Learning rate for actor-critic models
-    critic_lr = 0.002
-    actor_lr = 0.001
+    critic_lr = 0.001
+    actor_lr = 0.0001
 
     # Define optimizer
     critic_optimizer = tf.keras.optimizers.Adam(critic_lr)

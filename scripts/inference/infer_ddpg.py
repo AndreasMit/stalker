@@ -3,8 +3,6 @@
 import rospy
 import tensorflow as tf
 import numpy as np
-import matplotlib
-matplotlib.use('agg')
 import matplotlib.pyplot as plt
 from nav_msgs.msg import Odometry
 from geometry_msgs.msg import Point
@@ -17,8 +15,6 @@ from mavros_msgs.msg import PositionTarget
 import pylab
 from stalker.msg import PREDdata
 from BoxToLineClass import line_detector
-
-import random
 
 #-------------------------------- CLASS ENVIRONMENT --------------------------------#
 
@@ -75,7 +71,7 @@ class Environment:
         self.new_pose = False
 
         self.Line = line_detector()
-        self.timestep = 1
+
 
     def initial_pose(self):
         action_mavros = AttitudeTarget()
@@ -140,7 +136,6 @@ class Environment:
         position_reset.position.x = self.x_initial
         position_reset.position.y = self.y_initial
         position_reset.position.z = self.z_initial
-        self.yaw_initial = random.random()* 90
         position_reset.yaw = self.yaw_initial
         self.pub_pos.publish(position_reset) 
 
@@ -180,9 +175,13 @@ class Environment:
             # print(self.angle, self.yaw)
             if self.distance == 10000 and self.angle == 0 :
                 self.exceeded_bounds = True
-            if abs(self.angle) < 0.5 and abs(self.distance) > 270:
-                self.exceeded_bounds = True
-            #no need for new starting position
+            elif abs(self.distance) < self.good_distance and abs(self.angle) < self.good_angle and self.angle!=0:
+                # print('good position')
+                # print(self.distance, self.angle)
+                self.x_initial = self.x_position
+                self.y_initial = self.y_position
+                # self.z_initial = self.z_position #keep it to 5 meters
+                self.yaw_initial = self.yaw
 
             if self.exceeded_bounds and not self.done:
                 print("Exceeded Bounds --> Return to initial position")
@@ -214,28 +213,21 @@ class Environment:
 
                 #STATE
                 #normalized values only -> [0,1]
-                self.current_state = np.array([self.angle/max_angle])# , self.angle/max_angle , self.x_velocity/max_velocity])
+                self.current_state = np.array([self.distance/max_distance , self.angle/max_angle , self.x_velocity/max_velocity])
                  
                 # Pick an action according to actor network
                 tf_current_state = tf.expand_dims(tf.convert_to_tensor(self.current_state), 0)
                 tf_action = tf.squeeze(target_actor(tf_current_state))
                 self.action = tf_action.numpy()
-                # self.action = self.action[0]
                 # print(self.action)
-                self.action = np.clip(self.action, yaw_min, yaw_max)
-                
-                angles.append(self.angle/max_angle)
-                if self.timestep % 30 == 0 :
-                    plt.figure(1)
-                    plt.plot(angles, 'b')
-                    plt.grid()
-                    plt.savefig('/home/andreas/andreas/catkin_ws/src/stalker/scripts/checkpoints/st_co'+str(checkpoint)+'/infer_angle_error')
-                self.timestep += 1
+                self.action[0] = np.clip(self.action[0], angle_min, angle_max)
+                self.action[1] = np.clip(self.action[1], angle_min, angle_max)
+                self.action[2] = np.clip(self.action[2], yaw_min, yaw_max)
 
                 # Roll, Pitch, Yaw in Degrees
-                roll_des = 0
-                pitch_des = 0 
-                yaw_des = self.action + self.yaw  #differences in yaw
+                roll_des = self.action[0]
+                pitch_des = self.action[1] 
+                yaw_des = self.action[2] + self.yaw  #differences in yaw
                 # print(yaw_des)
 
                 # Convert to mavros message and publish desired attitude
@@ -244,8 +236,6 @@ class Environment:
                 action_mavros.thrust = 0.5
                 action_mavros.orientation = self.rpy2quat(roll_des,pitch_des,yaw_des)
                 self.pub_action.publish(action_mavros)
-
-
      
 
 def get_actor():
@@ -254,12 +244,12 @@ def get_actor():
     last_init = tf.random_uniform_initializer(minval=-0.003, maxval=0.003)
 
     inputs = layers.Input(shape=(num_states,))
-    h1 = layers.Dense(64, activation="tanh")(inputs)
-    h2 = layers.Dense(64, activation="tanh")(h1)    
+    h1 = layers.Dense(256, activation="tanh")(inputs)
+    h2 = layers.Dense(256, activation="tanh")(h1)    
     outputs = layers.Dense(num_actions, activation="tanh", kernel_initializer=last_init)(h2)
 
     # Output of tanh is [-1,1] so multiply with the upper control action
-    outputs = outputs * yaw_max
+    outputs = outputs * [angle_max, angle_max, yaw_max]
         
     model = tf.keras.Model(inputs, outputs)
 
@@ -270,19 +260,17 @@ if __name__=='__main__':
     rospy.init_node('rl_node', anonymous=True)
     tf.compat.v1.enable_eager_execution()
 
-    num_actions = 1
-    num_states = 1  
+    num_actions = 3 
+    num_states = 3  
 
     angle_max = 3.0 
     angle_min = -3.0 # constraints for commanded roll and pitch
-    yaw_max = 5.0 #how much yaw should change every time
-    yaw_min = -5.0
+    yaw_max = 2.0 #how much yaw should change every time
+    yaw_min = -2.0
 
-    checkpoint = 2
     target_actor = get_actor()
-    target_actor.load_weights('/home/andreas/andreas/catkin_ws/src/stalker/scripts/checkpoints/st_co'+str(checkpoint)+'/ddpg_actor.h5')
+    target_actor.load_weights('checkpoints/st_co0/ddpg_target_actor.h5')
 
-    angles = []
     Environment()
 
     r = rospy.Rate(20)

@@ -1,0 +1,11 @@
+yaw and roll
+128 neurons
+small learning rate 
+
+at 650 episodes not really good perfomance
+
+
+but suddenly in 658 these episodes looked like it knows what its doing
+
+
+also try with 256 neurons
