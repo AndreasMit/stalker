@@ -17,7 +17,7 @@ from mavros_msgs.msg import PositionTarget
 import pylab
 from stalker.msg import PREDdata
 from BoxToLineClass import line_detector
-import random
+
 #-------------------------------- CLASS ENVIRONMENT --------------------------------#
 
 class Environment:
@@ -59,7 +59,7 @@ class Environment:
 
         # Initialize variables
         self.action = np.zeros(num_actions)
-
+        self.current_episode = 0
         
         # Define Subscriber !edit type
         self.sub_detector = rospy.Subscriber("/box", PREDdata, self.DetectCallback)
@@ -67,14 +67,13 @@ class Environment:
         
         # Define line taken from detector
         self.box = PREDdata()
-        self.desired_pos_z = 5.0
+        self.desired_pos_z = 7.0
         self.desired_vel_x = 1
         self.distance, self.angle = 0, 0
         self.new_pose = False
 
         self.Line = line_detector()
-
-        self.timestep = 0 
+        self.timestep = 0
 
 
     def initial_pose(self):
@@ -140,7 +139,6 @@ class Environment:
         position_reset.position.x = self.x_initial
         position_reset.position.y = self.y_initial
         position_reset.position.z = self.z_initial
-        self.yaw_initial = random.random()* 90
         position_reset.yaw = self.yaw_initial
         self.pub_pos.publish(position_reset) 
 
@@ -180,34 +178,46 @@ class Environment:
             # print(self.angle, self.yaw)
             if self.distance == 10000 and self.angle == 0 :
                 self.exceeded_bounds = True
-            if abs(self.angle) < 0.5 and abs(self.distance) > 270:
+            elif abs(self.angle) < 0.5 and abs(self.distance) > 270: # this case is when the box is on the edge of the image and its not really vertical
                 self.exceeded_bounds = True
             elif abs(self.angle) > 89.5: # this includes being vertical to the pavement but also cases when the detection is on the edge of image and is not reliable
                 self.exceeded_bounds = True 
-            #no need for new starting position
+
+            elif abs(self.distance) < self.good_distance and abs(self.angle) < self.good_angle and self.angle!=0:
+                # print('good position')
+                # print(self.distance, self.angle)
+                self.x_initial = self.x_position
+                self.y_initial = self.y_position
+                # self.z_initial = self.z_position #keep it to 5 meters
+                self.yaw_initial = self.yaw
 
             if self.exceeded_bounds and not self.done:
                 print("Exceeded Bounds --> Return to initial position")
                 self.done = True
 
             if self.exceeded_bounds:
-                # instead go to last frame that had detection
-                if not self.to_start:
-                    self.go_to_start()
-                # When reach the inital position, begin next episode    
+                self.go_to_start()
                 if abs(self.x_position-self.x_initial)<0.2 and abs(self.y_position-self.y_initial)<0.2 and abs(self.z_position-self.z_initial)<0.2 :
-                    self.to_start = True
-                    # print('setting yaw')
-                    action_mavros = AttitudeTarget()
-                    action_mavros.type_mask = 7
-                    action_mavros.thrust = 0.5 # Altitude hold
-                    action_mavros.orientation = self.rpy2quat(0.0,0.0,self.yaw_initial) 
-                    self.pub_action.publish(action_mavros)
-                    if abs(self.yaw - self.yaw_initial)<10 :
-                        self.reset()                 
-                        print("Reset")                   
-                else:
-                    self.to_start = False               
+                    self.reset()                 
+                    print("Reset")                   
+                    print("Begin Episode %d" %self.current_episode)
+                # # instead go to last frame that had detection
+                # if not self.to_start:
+                #     self.go_to_start()
+                # # When reach the inital position, begin next episode    
+                # if abs(self.x_position-self.x_initial)<0.2 and abs(self.y_position-self.y_initial)<0.2 and abs(self.z_position-self.z_initial)<0.2 :
+                #     self.to_start = True
+                #     # print('setting yaw')
+                #     action_mavros = AttitudeTarget()
+                #     action_mavros.type_mask = 7
+                #     action_mavros.thrust = 0.5 # Altitude hold
+                #     action_mavros.orientation = self.rpy2quat(0.0,0.0,self.yaw_initial) 
+                #     self.pub_action.publish(action_mavros)
+                #     if abs(self.yaw - self.yaw_initial)<10 :
+                #         self.reset()                 
+                #         print("Reset")                   
+                # else:
+                #     self.to_start = False               
             else:           
                 # Compute the current state
                 max_distance = 360 #pixels
@@ -216,32 +226,34 @@ class Environment:
 
                 #STATE
                 #normalized values only -> [0,1]
-                self.current_state = np.array([self.distance/max_distance,min(self.y_velocity/max_velocity, 1), self.angle/max_angle])# , self.angle/max_angle , self.x_velocity/max_velocity])
+                self.current_state = np.array([self.distance/max_distance, min(self.y_velocity/max_velocity, 1), self.angle/max_angle , min((self.x_velocity - self.desired_vel_x)/max_velocity, 1)])
                  
                 # Pick an action according to actor network
                 tf_current_state = tf.expand_dims(tf.convert_to_tensor(self.current_state), 0)
                 tf_action = tf.squeeze(target_actor(tf_current_state))
                 self.action = tf_action.numpy()
-                # self.action = self.action[0]
                 # print(self.action)
                 self.action[0] = np.clip(self.action[0], angle_min, angle_max)
-                self.action[1] = np.clip(self.action[1], yaw_min, yaw_max)
+                self.action[1] = np.clip(self.action[1], angle_min, angle_max)
+                self.action[2] = np.clip(self.action[2], yaw_min, yaw_max)
 
                 distances.append(self.distance/max_distance)
                 angles.append(self.angle/max_angle)
-
                 if self.timestep % 30 == 0:
                     plt.figure(0)
                     plt.plot(distances, 'b')
                     plt.plot(angles, 'r')
                     plt.grid()
-                    plt.savefig('/home/andreas/andreas/catkin_ws/src/stalker/scripts/checkpoints/st_co'+str(checkpoint)+'/infer_distance_error')
+                    plt.savefig('/home/andreas/andreas/catkin_ws/src/stalker/scripts/checkpoints/st_co'+str(checkpoint)+'/try'+str(ntry)+'/infer_distance_error'+str(nntry))
+                    print('height: ', self.z_position,', velocity: ' ,self.x_velocity)
 
                 self.timestep += 1
+                
+
                 # Roll, Pitch, Yaw in Degrees
                 roll_des = self.action[0]
-                pitch_des = 0 
-                yaw_des = self.action[1] + self.yaw  #differences in yaw
+                pitch_des = self.action[1] 
+                yaw_des = self.action[2] + self.yaw  #differences in yaw
                 # print(yaw_des)
 
                 # Convert to mavros message and publish desired attitude
@@ -263,7 +275,7 @@ def get_actor():
     outputs = layers.Dense(num_actions, activation="tanh", kernel_initializer=last_init)(h2)
 
     # Output of tanh is [-1,1] so multiply with the upper control action
-    outputs = outputs * [angle_max, yaw_max]
+    outputs = outputs * [angle_max, angle_max, yaw_max]
         
     model = tf.keras.Model(inputs, outputs)
 
@@ -274,23 +286,23 @@ if __name__=='__main__':
     rospy.init_node('rl_node', anonymous=True)
     tf.compat.v1.enable_eager_execution()
 
-    num_actions = 2
-    num_states = 3  
+    num_actions = 3 
+    num_states = 4  
 
     angle_max = 3.0 
     angle_min = -3.0 # constraints for commanded roll and pitch
     yaw_max = 5.0 #how much yaw should change every time
     yaw_min = -5.0
 
-    checkpoint = 13
-
+    checkpoint = 0 #checkpoint try
+    ntry = 2
+    nntry = 1
     target_actor = get_actor()
-    target_actor.load_weights('/home/andreas/andreas/catkin_ws/src/stalker/scripts/checkpoints/st_co'+str(checkpoint)+'/ddpg_target_actor.h5')
+    target_actor.load_weights('/home/andreas/andreas/catkin_ws/src/stalker/scripts/checkpoints/st_co'+str(checkpoint)+'/try'+str(ntry)+'/ddpg_target_actor.h5')
 
     distances = []
     angles = []
     Environment()
-    
 
     r = rospy.Rate(20)
     while not rospy.is_shutdown:
