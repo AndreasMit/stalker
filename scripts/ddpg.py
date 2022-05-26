@@ -177,6 +177,7 @@ class Environment:
         self.previous_action = np.zeros(num_actions)
         self.done = False
         self.max_timesteps = 1024 # 512
+        self.ngraph = 0
         
         # Define Subscriber
         self.sub_detector = rospy.Subscriber("/box", PREDdata, self.DetectCallback)
@@ -260,6 +261,7 @@ class Environment:
 
     def reset(self):
         # If done, the episode has terminated -> save the episode's reward
+
         ep_reward_list.append(self.episodic_reward*self.max_timesteps/self.timestep)
         # ep_reward_list.append(self.episodic_reward)
         # Mean episodic reward of last 40 episodes
@@ -270,31 +272,42 @@ class Environment:
         # print("Episode * {} * Cur Reward is ==> {}".format(self.current_episode,self.episodic_reward))
         print("Episode * {} * Avg Reward is ==> {}".format(self.current_episode, avg_reward))
         avg_reward_list.append(avg_reward)
+       
+
         # Save the weights every 30 episodes to a file
-        if self.current_episode % 2 == 0.0:
+        if self.current_episode % 10 == 0.0:
             actor_model.save_weights("/home/andreas/andreas/catkin_ws/src/stalker/scripts/checkpoints/st_co"+str(checkpoint)+"/try"+str(ntry)+"/ddpg_actor.h5")
             critic_model.save_weights("/home/andreas/andreas/catkin_ws/src/stalker/scripts/checkpoints/st_co"+str(checkpoint)+"/try"+str(ntry)+"/ddpg_critic.h5")
             target_actor.save_weights("/home/andreas/andreas/catkin_ws/src/stalker/scripts/checkpoints/st_co"+str(checkpoint)+"/try"+str(ntry)+"/ddpg_target_actor.h5")
             target_critic.save_weights("/home/andreas/andreas/catkin_ws/src/stalker/scripts/checkpoints/st_co"+str(checkpoint)+"/try"+str(ntry)+"/ddpg_target_critic.h5")    
             print("-----Weights saved-----")     
 
-            plt.figure(0) 
+            plt.figure() 
             plt.plot(ep_reward_list, 'b')
             plt.plot(avg_reward_list, 'r')
             plt.ylabel('Score')
             plt.xlabel('Episodes')
             plt.grid()
-            plt.savefig('/home/andreas/andreas/catkin_ws/src/stalker/scripts/checkpoints/st_co'+str(checkpoint)+'/try'+str(ntry)+'/ddpg_score')
+            plt.savefig('/home/andreas/andreas/catkin_ws/src/stalker/scripts/checkpoints/st_co'+str(checkpoint)+'/try'+str(ntry)+'/ddpg_score'+str(self.ngraph))
             print("-----Plots saved-----")
             # plt.figure(1)
             # plt.scatter(distances, angles, c=rewards)
             # plt.grid()
             # plt.savefig('/home/andreas/andreas/catkin_ws/src/stalker/scripts/checkpoints/st_co'+str(checkpoint)+'/reward_per_error'+str(ntry)+'')
-            plt.figure(2)
+            plt.figure()
             plt.plot(distances, 'b')
             plt.plot(angles, 'r')
             plt.grid()
-            plt.savefig('/home/andreas/andreas/catkin_ws/src/stalker/scripts/checkpoints/st_co'+str(checkpoint)+'/try'+str(ntry)+'/distance_and_angle')
+            plt.savefig('/home/andreas/andreas/catkin_ws/src/stalker/scripts/checkpoints/st_co'+str(checkpoint)+'/try'+str(ntry)+'/distance_and_angle'+str(self.ngraph))
+
+        if self.current_episode % 150 == 0.0:
+            self.ngraph += 1
+            #we do this so we reduce memory used and take less time to save the graphs (less delay in training)
+            ep_reward_list.clear()
+            avg_reward_list.clear()
+            distances.clear()
+            angles.clear()
+
 
         # Reset episodic reward and timestep to zero
         self.episodic_reward = 0.0
@@ -591,11 +604,11 @@ if __name__=='__main__':
     target_critic.set_weights(critic_model.get_weights())
 
     # Load pretrained weights
-    actor_model.load_weights('/home/andreas/andreas/catkin_ws/src/stalker/scripts/checkpoints/st_co'+str(checkpoint)+'/try'+str(ntry)+'/ddpg_actor.h5')
-    critic_model.load_weights('/home/andreas/andreas/catkin_ws/src/stalker/scripts/checkpoints/st_co'+str(checkpoint)+'/try'+str(ntry)+'/ddpg_critic.h5')
+    # actor_model.load_weights('/home/andreas/andreas/catkin_ws/src/stalker/scripts/checkpoints/st_co'+str(checkpoint)+'/try'+str(ntry)+'/ddpg_actor.h5')
+    # critic_model.load_weights('/home/andreas/andreas/catkin_ws/src/stalker/scripts/checkpoints/st_co'+str(checkpoint)+'/try'+str(ntry)+'/ddpg_critic.h5')
 
-    target_actor.load_weights('/home/andreas/andreas/catkin_ws/src/stalker/scripts/checkpoints/st_co'+str(checkpoint)+'/try'+str(ntry)+'/ddpg_target_actor.h5')
-    target_critic.load_weights('/home/andreas/andreas/catkin_ws/src/stalker/scripts/checkpoints/st_co'+str(checkpoint)+'/try'+str(ntry)+'/ddpg_target_critic.h5')
+    # target_actor.load_weights('/home/andreas/andreas/catkin_ws/src/stalker/scripts/checkpoints/st_co'+str(checkpoint)+'/try'+str(ntry)+'/ddpg_target_actor.h5')
+    # target_critic.load_weights('/home/andreas/andreas/catkin_ws/src/stalker/scripts/checkpoints/st_co'+str(checkpoint)+'/try'+str(ntry)+'/ddpg_target_critic.h5')
 
     # Learning rate for actor-critic models
     critic_lr = 0.001
@@ -620,7 +633,7 @@ if __name__=='__main__':
     angles = []
     rewards = []
     rolls = []
-   
+
     Environment()
 
     # buffer = Buffer(100000, 1000)

@@ -5,7 +5,7 @@
 	<!-- GPS default position of Robotnik at Fuente del Jarro-->
 
 	<arg name="launch_rviz" default="false"/>
-	<arg name="gazebo_world" default="$(find summit_xl_gazebo)/worlds/summit_arducopter.world"/>
+	<arg name="gazebo_world" default="$(find stalker)/worlds/summit_arducopter.world"/>
 	<arg name="gazebo_gui" default="true"/>
 	<arg name="omni_drive" default="false"/>
 	<arg name="default_xacro" default="summit_xl_std.urdf.xacro"/>

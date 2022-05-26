@@ -1,5 +1,38 @@
 <sdf version='1.6'>
   <world name='default'>
+    <gui fullscreen='0'>
+      <camera name='user_camera'>
+        <pose frame=''>-5 0 1 0 0.2 0</pose>
+        <view_controller>orbit</view_controller>
+        <projection_type>perspective</projection_type>
+      </camera>
+    </gui>
+    <scene>
+      <grid>0</grid>
+      <ambient>0.9 0.9 0.9 1</ambient>
+      <shadows>0</shadows>
+      <background>0.7 0.7 0.7 1</background>
+    </scene>
+    <physics name='default_physics' default='0' type='ode'>
+      <ode>
+        <solver>
+          <type>quick</type>
+          <iters>100</iters>
+          <sor>1</sor>
+          <use_dynamic_moi_rescaling>0</use_dynamic_moi_rescaling>
+        </solver>
+        <constraints>
+          <cfm>0</cfm>
+          <erp>0.2</erp>
+          <contact_max_correcting_vel>0.1</contact_max_correcting_vel>
+          <contact_surface_layer>0</contact_surface_layer>
+        </constraints>
+      </ode>
+      <real_time_update_rate>-1</real_time_update_rate>
+      <max_step_size>0.001</max_step_size>
+      <real_time_factor>1</real_time_factor>
+    </physics>
+    <gravity>0 0 -9.8</gravity>
     <light name='sun' type='directional'>
       <cast_shadows>1</cast_shadows>
       <pose frame=''>0 0 10 0 -0 0</pose>
@@ -20,14 +53,10 @@
           <geometry>
             <plane>
               <normal>0 0 1</normal>
-              <size>100 100</size>
+              <size>5000 5000</size>
             </plane>
           </geometry>
           <surface>
-            <contact>
-              <collide_bitmask>65535</collide_bitmask>
-              <ode/>
-            </contact>
             <friction>
               <ode>
                 <mu>100</mu>
@@ -37,22 +66,26 @@
                 <ode/>
               </torsional>
             </friction>
+            <contact>
+              <ode/>
+            </contact>
             <bounce/>
           </surface>
           <max_contacts>10</max_contacts>
         </collision>
-        <visual name='visual'>
+        <visual name='grass'>
+          <pose frame=''>0 0 -0.1 0 -0 0</pose>
           <cast_shadows>0</cast_shadows>
           <geometry>
             <plane>
               <normal>0 0 1</normal>
-              <size>100 100</size>
+              <size>5000 5000</size>
             </plane>
           </geometry>
           <material>
             <script>
               <uri>file://media/materials/scripts/gazebo.material</uri>
-              <name>Gazebo/Grey</name>
+              <name>Gazebo/Grass</name>
             </script>
           </material>
         </visual>
@@ -60,803 +93,9 @@
         <enable_wind>0</enable_wind>
         <kinematic>0</kinematic>
       </link>
-    </model>
-    <gravity>0 0 -9.8</gravity>
-    <magnetic_field>6e-06 2.3e-05 -4.2e-05</magnetic_field>
-    <atmosphere type='adiabatic'/>
-    <physics name='default_physics' default='0' type='ode'>
-      <max_step_size>0.001</max_step_size>
-      <real_time_factor>1</real_time_factor>
-      <real_time_update_rate>1000</real_time_update_rate>
-    </physics>
-    <scene>
-      <ambient>0.4 0.4 0.4 1</ambient>
-      <background>0.7 0.7 0.7 1</background>
-      <shadows>1</shadows>
-    </scene>
-    <wind/>
-    <spherical_coordinates>
-      <surface_model>EARTH_WGS84</surface_model>
-      <latitude_deg>0</latitude_deg>
-      <longitude_deg>0</longitude_deg>
-      <elevation>0</elevation>
-      <heading_deg>0</heading_deg>
-    </spherical_coordinates>
-    <model name='robot'>
-      <link name='robot_base_footprint'>
-        <pose frame=''>0 0 0 0 -0 0</pose>
-        <inertial>
-          <pose frame=''>0.007398 0.00014 0.123581 0 -0 0</pose>
-          <mass>26.436</mass>
-          <inertia>
-            <ixx>1.4828</ixx>
-            <ixy>0.00290001</ixy>
-            <ixz>-0.038193</ixz>
-            <iyy>7.00811</iyy>
-            <iyz>-0.000641383</iyz>
-            <izz>6.19236</izz>
-          </inertia>
-        </inertial>
-        <collision name='robot_base_footprint_fixed_joint_lump__robot_base_link_collision'>
-          <pose frame=''>0 0 0.11 0 -0 0</pose>
-          <geometry>
-            <mesh>
-              <scale>1 1 1</scale>
-              <uri>/home/rico/catkin_ws/src/summit_xl_common/summit_xl_description/meshes/bases/summit_xl_chassis_collision.dae</uri>
-            </mesh>
-          </geometry>
-          <max_contacts>10</max_contacts>
-          <surface>
-            <contact>
-              <ode/>
-            </contact>
-            <bounce/>
-            <friction>
-              <torsional>
-                <ode/>
-              </torsional>
-              <ode/>
-            </friction>
-          </surface>
-        </collision>
-        <collision name='robot_base_footprint_fixed_joint_lump__robot_front_laser_base_link_collision_1'>
-          <pose frame=''>0 0 0.44 0 -0 0</pose>
-          <geometry>
-            <box>
-              <size>0.01 0.01 0.01</size>
-            </box>
-          </geometry>
-          <max_contacts>10</max_contacts>
-          <surface>
-            <contact>
-              <ode/>
-            </contact>
-            <bounce/>
-            <friction>
-              <torsional>
-                <ode/>
-              </torsional>
-              <ode/>
-            </friction>
-          </surface>
-        </collision>
-        <collision name='robot_base_footprint_fixed_joint_lump__robot_front_ptz_camera_base_link_collision_2'>
-          <pose frame=''>0.19 0 0.37 0 0.261799 0</pose>
-          <geometry>
-            <mesh>
-              <scale>1 1 1</scale>
-              <uri>/home/rico/catkin_ws/src/robotnik_sensors/meshes/axis_p5514.stl</uri>
-            </mesh>
-          </geometry>
-          <surface>
-            <contact>
-              <ode/>
-            </contact>
-            <friction>
-              <ode/>
-              <torsional>
-                <ode/>
-              </torsional>
-            </friction>
-            <bounce/>
-          </surface>
-          <max_contacts>10</max_contacts>
-        </collision>
-        <collision name='robot_base_footprint_fixed_joint_lump__robot_front_rgbd_camera_link_collision_3'>
-          <pose frame=''>0.324 0.012 0.282 0 -0 0</pose>
-          <geometry>
-            <mesh>
-              <scale>1 1 1</scale>
-              <uri>/home/rico/catkin_ws/src/robotnik_sensors/meshes/orbbec_astra.dae</uri>
-            </mesh>
-          </geometry>
-          <surface>
-            <contact>
-              <ode/>
-            </contact>
-            <friction>
-              <ode/>
-              <torsional>
-                <ode/>
-              </torsional>
-            </friction>
-            <bounce/>
-          </surface>
-          <max_contacts>10</max_contacts>
-        </collision>
-        <collision name='robot_base_footprint_fixed_joint_lump__robot_gps_base_link_collision_4'>
-          <pose frame=''>-0.22 0 0.385 0 -0 0</pose>
-          <geometry>
-            <mesh>
-              <scale>1 1 1</scale>
-              <uri>/home/rico/catkin_ws/src/robotnik_sensors/meshes/antenna_3GO16.stl</uri>
-            </mesh>
-          </geometry>
-          <surface>
-            <contact>
-              <ode/>
-            </contact>
-            <friction>
-              <ode/>
-              <torsional>
-                <ode/>
-              </torsional>
-            </friction>
-            <bounce/>
-          </surface>
-          <max_contacts>10</max_contacts>
-        </collision>
-        <visual name='robot_base_footprint_visual'>
-          <pose frame=''>0 0 0 0 -0 0</pose>
-          <geometry>
-            <box>
-              <size>0.001 0.001 0.001</size>
-            </box>
-          </geometry>
-        </visual>
-        <visual name='robot_base_footprint_fixed_joint_lump__robot_base_link_visual_1'>
-          <pose frame=''>0 0 0.11 0 -0 0</pose>
-          <geometry>
-            <mesh>
-              <scale>1 1 1</scale>
-              <uri>/home/rico/catkin_ws/src/summit_xl_common/summit_xl_description/meshes/bases/summit_xl_chassis.dae</uri>
-            </mesh>
-          </geometry>
-        </visual>
-        <visual name='robot_base_footprint_fixed_joint_lump__robot_front_laser_base_link_visual_2'>
-          <pose frame=''>0 0 0.44 0 -0 0</pose>
-          <geometry>
-            <mesh>
-              <scale>1 1 1</scale>
-              <uri>/home/rico/catkin_ws/src/robotnik_sensors/meshes/hokuyo_ust_10lx.dae</uri>
-            </mesh>
-          </geometry>
-        </visual>
-        <visual name='robot_base_footprint_fixed_joint_lump__robot_front_ptz_camera_base_link_visual_3'>
-          <pose frame=''>0.19 0 0.37 0 0.261799 0</pose>
-          <geometry>
-            <mesh>
-              <scale>1 1 1</scale>
-              <uri>/home/rico/catkin_ws/src/robotnik_sensors/meshes/axis_p5514.stl</uri>
-            </mesh>
-          </geometry>
-          <material>
-            <script>
-              <name>Gazebo/FlatBlack</name>
-              <uri>file://media/materials/scripts/gazebo.material</uri>
-            </script>
-          </material>
-        </visual>
-        <visual name='robot_base_footprint_fixed_joint_lump__robot_front_rgbd_camera_link_visual_4'>
-          <pose frame=''>0.324 0.012 0.282 0 -0 0</pose>
-          <geometry>
-            <mesh>
-              <scale>1 1 1</scale>
-              <uri>/home/rico/catkin_ws/src/robotnik_sensors/meshes/orbbec_astra.dae</uri>
-            </mesh>
-          </geometry>
-          <material>
-            <script>
-              <uri>__default__</uri>
-              <name>__default__</name>
-            </script>
-          </material>
-        </visual>
-        <visual name='robot_base_footprint_fixed_joint_lump__robot_gps_base_link_visual_5'>
-          <pose frame=''>-0.22 0 0.385 0 -0 0</pose>
-          <geometry>
-            <mesh>
-              <scale>1 1 1</scale>
-              <uri>/home/rico/catkin_ws/src/robotnik_sensors/meshes/antenna_3GO16.stl</uri>
-            </mesh>
-          </geometry>
-          <material>
-            <script>
-              <name>Gazebo/White</name>
-              <uri>file://media/materials/scripts/gazebo.material</uri>
-            </script>
-          </material>
-        </visual>
-        <visual name='robot_base_footprint_fixed_joint_lump__robot_imu_link_visual_6'>
-          <pose frame=''>-0.18 0 0.28 0 -0 0</pose>
-          <geometry>
-            <box>
-              <size>0.001 0.001 0.001</size>
-            </box>
-          </geometry>
-          <material>
-            <script>
-              <uri>__default__</uri>
-              <name>__default__</name>
-            </script>
-          </material>
-        </visual>
-        <velocity_decay/>
-        <sensor name='robot_front_laser_sensor' type='ray'>
-          <visualize>0</visualize>
-          <update_rate>40</update_rate>
-          <ray>
-            <scan>
-              <horizontal>
-                <samples>1081</samples>
-                <resolution>1</resolution>
-                <min_angle>-2.3562</min_angle>
-                <max_angle>2.3562</max_angle>
-              </horizontal>
-              <vertical>
-                <samples>1</samples>
-                <min_angle>0</min_angle>
-                <max_angle>0</max_angle>
-              </vertical>
-            </scan>
-            <range>
-              <min>0.06</min>
-              <max>10</max>
-              <resolution>0.0043593</resolution>
-            </range>
-            <noise>
-              <type>gaussian</type>
-              <mean>0</mean>
-              <stddev>0.01</stddev>
-            </noise>
-          </ray>
-          <plugin name='robot_front_laser_controller' filename='libgazebo_ros_laser.so'>
-            <topicName>front_laser/scan</topicName>
-            <frameName>/robot_front_laser_link</frameName>
-            <robotNamespace>/robot/</robotNamespace>
-          </plugin>
-          <pose frame=''>0 0 0.4874 0 -0 0</pose>
-        </sensor>
-        <velocity_decay/>
-        <velocity_decay/>
-        <sensor name='robot_front_rgbd_camera_depth_sensor' type='depth'>
-          <always_on>1</always_on>
-          <update_rate>20</update_rate>
-          <camera name='__default__'>
-            <horizontal_fov>1.0472</horizontal_fov>
-            <image>
-              <format>R8G8B8</format>
-              <width>640</width>
-              <height>480</height>
-            </image>
-            <clip>
-              <near>0.05</near>
-              <far>3.5</far>
-            </clip>
-          </camera>
-          <plugin name='robot_front_rgbd_camera_controller' filename='libgazebo_ros_openni_kinect.so'>
-            <cameraName>front_rgbd_camera</cameraName>
-            <alwaysOn>1</alwaysOn>
-            <updateRate>10</updateRate>
-            <imageTopicName>rgb/image_raw</imageTopicName>
-            <depthImageTopicName>depth/image_raw</depthImageTopicName>
-            <pointCloudTopicName>depth/points</pointCloudTopicName>
-            <cameraInfoTopicName>rgb/camera_info</cameraInfoTopicName>
-            <depthImageCameraInfoTopicName>depth/camera_info</depthImageCameraInfoTopicName>
-            <frameName>/robot_front_rgbd_camera_depth_optical_frame</frameName>
-            <baseline>0.1</baseline>
-            <distortion_k1>0.0</distortion_k1>
-            <distortion_k2>0.0</distortion_k2>
-            <distortion_k3>0.0</distortion_k3>
-            <distortion_t1>0.0</distortion_t1>
-            <distortion_t2>0.0</distortion_t2>
-            <pointCloudCutoff>0.4</pointCloudCutoff>
-            <robotNamespace>/robot/</robotNamespace>
-          </plugin>
-          <pose frame=''>0.324 0.012 0.282 0 -0 0</pose>
-        </sensor>
-        <velocity_decay/>
-        <gravity>1</gravity>
-        <gravity>1</gravity>
-        <velocity_decay/>
-        <gravity>1</gravity>
-        <sensor name='robot_imu_imu_sensor' type='imu'>
-          <always_on>1</always_on>
-          <update_rate>100</update_rate>
-          <visualize>1</visualize>
-          <topic>__default_topic__</topic>
-          <plugin name='robot_imu_imu_plugin' filename='libgazebo_ros_imu_sensor.so'>
-            <topicName>imu/data</topicName>
-            <bodyName>robot_imu_link</bodyName>
-            <updateRateHZ>100.0</updateRateHZ>
-            <gaussianNoise>0.0</gaussianNoise>
-            <xyzOffset>0 0 0</xyzOffset>
-            <rpyOffset>0 0 0</rpyOffset>
-            <frameName>robot_imu_link</frameName>
-            <robotNamespace>/robot/</robotNamespace>
-          </plugin>
-          <pose frame=''>-0.18 0 0.28 0 -0 0</pose>
-          <imu/>
-        </sensor>
-        <self_collide>0</self_collide>
-        <enable_wind>0</enable_wind>
-        <kinematic>0</kinematic>
-      </link>
-      <link name='robot_back_left_wheel'>
-        <pose frame=''>-0.229 0.235 0.11 0 -0 0</pose>
-        <inertial>
-          <pose frame=''>0 0 0 0 -0 0</pose>
-          <mass>6.5</mass>
-          <inertia>
-            <ixx>0.03185</ixx>
-            <ixy>0</ixy>
-            <ixz>0</ixz>
-            <iyy>0.039325</iyy>
-            <iyz>0</iyz>
-            <izz>0.03185</izz>
-          </inertia>
-        </inertial>
-        <collision name='robot_back_left_wheel_collision'>
-          <pose frame=''>0 0 0 1.5708 -0 0</pose>
-          <geometry>
-            <cylinder>
-              <length>0.15</length>
-              <radius>0.11</radius>
-            </cylinder>
-          </geometry>
-          <surface>
-            <contact>
-              <ode>
-                <kp>1e+07</kp>
-                <kd>1</kd>
-              </ode>
-            </contact>
-            <friction>
-              <ode>
-                <mu>1</mu>
-                <mu2>1</mu2>
-                <fdir1>1 0 0</fdir1>
-              </ode>
-              <torsional>
-                <ode/>
-              </torsional>
-            </friction>
-            <bounce/>
-          </surface>
-          <max_contacts>10</max_contacts>
-        </collision>
-        <visual name='robot_back_left_wheel_visual'>
-          <pose frame=''>0 0 0 0 -0 0</pose>
-          <geometry>
-            <mesh>
-              <scale>1 1 1</scale>
-              <uri>/home/rico/catkin_ws/src/summit_xl_common/summit_xl_description/meshes/wheels/rubber_wheel_left.dae</uri>
-            </mesh>
-          </geometry>
-          <material>
-            <script>
-              <uri>__default__</uri>
-              <name>__default__</name>
-            </script>
-          </material>
-        </visual>
-        <gravity>1</gravity>
-        <velocity_decay/>
-        <self_collide>0</self_collide>
-        <enable_wind>0</enable_wind>
-        <kinematic>0</kinematic>
-      </link>
-      <joint name='robot_back_left_wheel_joint' type='revolute'>
-        <child>robot_back_left_wheel</child>
-        <parent>robot_base_footprint</parent>
-        <axis>
-          <xyz>0 1 0</xyz>
-          <limit>
-            <lower>-1e+16</lower>
-            <upper>1e+16</upper>
-          </limit>
-          <dynamics>
-            <spring_reference>0</spring_reference>
-            <spring_stiffness>0</spring_stiffness>
-          </dynamics>
-          <use_parent_model_frame>0</use_parent_model_frame>
-        </axis>
-      </joint>
-      <link name='robot_back_right_wheel'>
-        <pose frame=''>-0.229 -0.235 0.11 0 -0 0</pose>
-        <inertial>
-          <pose frame=''>0 0 0 0 -0 0</pose>
-          <mass>6.5</mass>
-          <inertia>
-            <ixx>0.03185</ixx>
-            <ixy>0</ixy>
-            <ixz>0</ixz>
-            <iyy>0.039325</iyy>
-            <iyz>0</iyz>
-            <izz>0.03185</izz>
-          </inertia>
-        </inertial>
-        <collision name='robot_back_right_wheel_collision'>
-          <pose frame=''>0 0 0 1.5708 -0 0</pose>
-          <geometry>
-            <cylinder>
-              <length>0.15</length>
-              <radius>0.11</radius>
-            </cylinder>
-          </geometry>
-          <surface>
-            <contact>
-              <ode>
-                <kp>1e+07</kp>
-                <kd>1</kd>
-              </ode>
-            </contact>
-            <friction>
-              <ode>
-                <mu>1</mu>
-                <mu2>1</mu2>
-                <fdir1>1 0 0</fdir1>
-              </ode>
-              <torsional>
-                <ode/>
-              </torsional>
-            </friction>
-            <bounce/>
-          </surface>
-          <max_contacts>10</max_contacts>
-        </collision>
-        <visual name='robot_back_right_wheel_visual'>
-          <pose frame=''>0 0 0 0 -0 0</pose>
-          <geometry>
-            <mesh>
-              <scale>1 1 1</scale>
-              <uri>/home/rico/catkin_ws/src/summit_xl_common/summit_xl_description/meshes/wheels/rubber_wheel_right.dae</uri>
-            </mesh>
-          </geometry>
-          <material>
-            <script>
-              <uri>__default__</uri>
-              <name>__default__</name>
-            </script>
-          </material>
-        </visual>
-        <gravity>1</gravity>
-        <velocity_decay/>
-        <self_collide>0</self_collide>
-        <enable_wind>0</enable_wind>
-        <kinematic>0</kinematic>
-      </link>
-      <joint name='robot_back_right_wheel_joint' type='revolute'>
-        <child>robot_back_right_wheel</child>
-        <parent>robot_base_footprint</parent>
-        <axis>
-          <xyz>0 1 0</xyz>
-          <limit>
-            <lower>-1e+16</lower>
-            <upper>1e+16</upper>
-          </limit>
-          <dynamics>
-            <spring_reference>0</spring_reference>
-            <spring_stiffness>0</spring_stiffness>
-          </dynamics>
-          <use_parent_model_frame>0</use_parent_model_frame>
-        </axis>
-      </joint>
-      <link name='robot_front_left_wheel'>
-        <pose frame=''>0.229 0.235 0.11 0 -0 0</pose>
-        <inertial>
-          <pose frame=''>0 0 0 0 -0 0</pose>
-          <mass>6.5</mass>
-          <inertia>
-            <ixx>0.03185</ixx>
-            <ixy>0</ixy>
-            <ixz>0</ixz>
-            <iyy>0.039325</iyy>
-            <iyz>0</iyz>
-            <izz>0.03185</izz>
-          </inertia>
-        </inertial>
-        <collision name='robot_front_left_wheel_collision'>
-          <pose frame=''>0 0 0 1.5708 -0 0</pose>
-          <geometry>
-            <cylinder>
-              <length>0.15</length>
-              <radius>0.11</radius>
-            </cylinder>
-          </geometry>
-          <surface>
-            <contact>
-              <ode>
-                <kp>1e+07</kp>
-                <kd>1</kd>
-              </ode>
-            </contact>
-            <friction>
-              <ode>
-                <mu>1</mu>
-                <mu2>1</mu2>
-                <fdir1>1 0 0</fdir1>
-              </ode>
-              <torsional>
-                <ode/>
-              </torsional>
-            </friction>
-            <bounce/>
-          </surface>
-          <max_contacts>10</max_contacts>
-        </collision>
-        <visual name='robot_front_left_wheel_visual'>
-          <pose frame=''>0 0 0 0 -0 0</pose>
-          <geometry>
-            <mesh>
-              <scale>1 1 1</scale>
-              <uri>/home/rico/catkin_ws/src/summit_xl_common/summit_xl_description/meshes/wheels/rubber_wheel_left.dae</uri>
-            </mesh>
-          </geometry>
-          <material>
-            <script>
-              <uri>__default__</uri>
-              <name>__default__</name>
-            </script>
-          </material>
-        </visual>
-        <gravity>1</gravity>
-        <velocity_decay/>
-        <self_collide>0</self_collide>
-        <enable_wind>0</enable_wind>
-        <kinematic>0</kinematic>
-      </link>
-      <joint name='robot_front_left_wheel_joint' type='revolute'>
-        <child>robot_front_left_wheel</child>
-        <parent>robot_base_footprint</parent>
-        <axis>
-          <xyz>0 1 0</xyz>
-          <limit>
-            <lower>-1e+16</lower>
-            <upper>1e+16</upper>
-          </limit>
-          <dynamics>
-            <spring_reference>0</spring_reference>
-            <spring_stiffness>0</spring_stiffness>
-          </dynamics>
-          <use_parent_model_frame>0</use_parent_model_frame>
-        </axis>
-      </joint>
-      <link name='robot_front_ptz_camera_pan_link'>
-        <pose frame=''>0.19 0 0.37 0 0.261799 0</pose>
-        <inertial>
-          <pose frame=''>0 0 0 0 -0 0</pose>
-          <mass>0.1</mass>
-          <inertia>
-            <ixx>0.000201667</ixx>
-            <ixy>0</ixy>
-            <ixz>0</ixz>
-            <iyy>0.000184167</iyy>
-            <iyz>0</iyz>
-            <izz>0.000184167</izz>
-          </inertia>
-        </inertial>
-        <self_collide>0</self_collide>
-        <enable_wind>0</enable_wind>
-        <kinematic>0</kinematic>
-      </link>
-      <joint name='robot_front_ptz_camera_pan_joint' type='revolute'>
-        <child>robot_front_ptz_camera_pan_link</child>
-        <parent>robot_base_footprint</parent>
-        <axis>
-          <xyz>0 0 -1</xyz>
-          <limit>
-            <lower>-3.1415</lower>
-            <upper>3.1415</upper>
-            <effort>100</effort>
-            <velocity>1</velocity>
-          </limit>
-          <dynamics>
-            <spring_reference>0</spring_reference>
-            <spring_stiffness>0</spring_stiffness>
-          </dynamics>
-          <use_parent_model_frame>0</use_parent_model_frame>
-        </axis>
-      </joint>
-      <link name='robot_front_ptz_camera_tilt_link'>
-        <pose frame=''>0.19 0 0.37 0 0.261799 0</pose>
-        <inertial>
-          <pose frame=''>0 0 0 0 -0 0</pose>
-          <mass>0.3</mass>
-          <inertia>
-            <ixx>0.00057</ixx>
-            <ixy>8.56903e-17</ixy>
-            <ixz>8.56903e-17</ixz>
-            <iyy>0.0005525</iyy>
-            <iyz>4.1959e-28</iyz>
-            <izz>0.0005875</izz>
-          </inertia>
-        </inertial>
-        <gravity>1</gravity>
-        <velocity_decay/>
-        <sensor name='robot_front_ptz_camera_sensor' type='camera'>
-          <update_rate>30</update_rate>
-          <camera name='__default__'>
-            <horizontal_fov>1.0472</horizontal_fov>
-            <image>
-              <format>R8G8B8</format>
-              <width>640</width>
-              <height>480</height>
-            </image>
-            <clip>
-              <near>0.05</near>
-              <far>8</far>
-            </clip>
-          </camera>
-          <plugin name='robot_front_ptz_camera_controller' filename='libgazebo_ros_camera.so'>
-            <alwaysOn>1</alwaysOn>
-            <updateRate>0.0</updateRate>
-            <cameraName>robot_front_ptz_camera</cameraName>
-            <imageTopicName>image_raw</imageTopicName>
-            <cameraInfoTopicName>camera_info</cameraInfoTopicName>
-            <frameName>/robot_front_ptz_camera_optical_frame_link</frameName>
-            <hackBaseline>0.0</hackBaseline>
-            <distortionK1>0.0</distortionK1>
-            <distortionK2>0.0</distortionK2>
-            <distortionK3>0.0</distortionK3>
-            <distortionT1>0.0</distortionT1>
-            <distortionT2>0.0</distortionT2>
-            <robotNamespace>/robot/</robotNamespace>
-          </plugin>
-          <pose frame=''>0 0 0 0 -0 0</pose>
-        </sensor>
-        <self_collide>0</self_collide>
-        <enable_wind>0</enable_wind>
-        <kinematic>0</kinematic>
-      </link>
-      <joint name='robot_front_ptz_camera_tilt_joint' type='revolute'>
-        <child>robot_front_ptz_camera_tilt_link</child>
-        <parent>robot_front_ptz_camera_pan_link</parent>
-        <axis>
-          <xyz>0 -1 0</xyz>
-          <limit>
-            <lower>-1.5708</lower>
-            <upper>1.5708</upper>
-            <effort>100</effort>
-            <velocity>1</velocity>
-          </limit>
-          <dynamics>
-            <spring_reference>0</spring_reference>
-            <spring_stiffness>0</spring_stiffness>
-          </dynamics>
-          <use_parent_model_frame>0</use_parent_model_frame>
-        </axis>
-      </joint>
-      <link name='robot_front_right_wheel'>
-        <pose frame=''>0.229 -0.235 0.11 0 -0 0</pose>
-        <inertial>
-          <pose frame=''>0 0 0 0 -0 0</pose>
-          <mass>6.5</mass>
-          <inertia>
-            <ixx>0.03185</ixx>
-            <ixy>0</ixy>
-            <ixz>0</ixz>
-            <iyy>0.039325</iyy>
-            <iyz>0</iyz>
-            <izz>0.03185</izz>
-          </inertia>
-        </inertial>
-        <collision name='robot_front_right_wheel_collision'>
-          <pose frame=''>0 0 0 1.5708 -0 0</pose>
-          <geometry>
-            <cylinder>
-              <length>0.15</length>
-              <radius>0.11</radius>
-            </cylinder>
-          </geometry>
-          <surface>
-            <contact>
-              <ode>
-                <kp>1e+07</kp>
-                <kd>1</kd>
-              </ode>
-            </contact>
-            <friction>
-              <ode>
-                <mu>1</mu>
-                <mu2>1</mu2>
-                <fdir1>1 0 0</fdir1>
-              </ode>
-              <torsional>
-                <ode/>
-              </torsional>
-            </friction>
-            <bounce/>
-          </surface>
-          <max_contacts>10</max_contacts>
-        </collision>
-        <visual name='robot_front_right_wheel_visual'>
-          <pose frame=''>0 0 0 0 -0 0</pose>
-          <geometry>
-            <mesh>
-              <scale>1 1 1</scale>
-              <uri>/home/rico/catkin_ws/src/summit_xl_common/summit_xl_description/meshes/wheels/rubber_wheel_right.dae</uri>
-            </mesh>
-          </geometry>
-          <material>
-            <script>
-              <uri>__default__</uri>
-              <name>__default__</name>
-            </script>
-          </material>
-        </visual>
-        <gravity>1</gravity>
-        <velocity_decay/>
-        <self_collide>0</self_collide>
-        <enable_wind>0</enable_wind>
-        <kinematic>0</kinematic>
-      </link>
-      <joint name='robot_front_right_wheel_joint' type='revolute'>
-        <child>robot_front_right_wheel</child>
-        <parent>robot_base_footprint</parent>
-        <axis>
-          <xyz>0 1 0</xyz>
-          <limit>
-            <lower>-1e+16</lower>
-            <upper>1e+16</upper>
-          </limit>
-          <dynamics>
-            <spring_reference>0</spring_reference>
-            <spring_stiffness>0</spring_stiffness>
-          </dynamics>
-          <use_parent_model_frame>0</use_parent_model_frame>
-        </axis>
-      </joint>
-      <plugin name='ros_control' filename='libgazebo_ros_control.so'>
-        <robotParam>robot_description</robotParam>
-        <controlPeriod>0.001</controlPeriod>
-        <robotSimType>gazebo_ros_control/DefaultRobotHWSim</robotSimType>
-        <legacyModeNS>1</legacyModeNS>
-        <robotNamespace>/robot/</robotNamespace>
-      </plugin>
-      <plugin name='skid_steering' filename='libgazebo_ros_planar_move.so'>
-        <commandTopic>robotnik_base_control/cmd_vel</commandTopic>
-        <odometryTopic>robotnik_base_control/odom</odometryTopic>
-        <odometryFrame>robot_odom</odometryFrame>
-        <odometryRate>50.0</odometryRate>
-        <robotBaseFrame>robot_base_footprint</robotBaseFrame>
-        <publishTF>1</publishTF>
-        <enableYAxis>0</enableYAxis>
-        <robotNamespace>/robot/</robotNamespace>
-      </plugin>
-      <static>0</static>
-      <plugin name='robot_gps_controller' filename='libhector_gazebo_ros_gps.so'>
-        <alwaysOn>1</alwaysOn>
-        <updateRate>5</updateRate>
-        <frameId>robot_gps_base_link</frameId>
-        <topicName>gps/fix</topicName>
-        <referenceLatitude>39.5080331</referenceLatitude>
-        <referenceLongitude>-0.4619816</referenceLongitude>
-        <referenceHeading>90</referenceHeading>
-        <velocityTopicName>gps/fix_velocity</velocityTopicName>
-        <drift>0.0 0.0 0.0</drift>
-        <gaussianNoise>0.00001 0.00001 0.00001</gaussianNoise>
-        <velocityDrift>0.00001 0.00001 0.00001</velocityDrift>
-        <velocityGaussianNoise>0.00001 0.00001 0.00001</velocityGaussianNoise>
-        <robotNamespace>/robot/</robotNamespace>
-        <bodyName>robot_base_footprint</bodyName>
-        <xyzOffset>0.22 0 -0.385</xyzOffset>
-        <rpyOffset>0 -0 0</rpyOffset>
-      </plugin>
-      <pose frame=''>0 0 0 0 -0 0</pose>
     </model>
     <model name='iris_demo'>
-      <link name='iris::base_link'>
+      <link name='iris_demo::iris::base_link'>
         <velocity_decay>
           <linear>0</linear>
           <angular>0</angular>
@@ -889,8 +128,8 @@
             </contact>
             <friction>
               <ode>
-                <mu>100000</mu>
-                <mu2>100000</mu2>
+                <mu>1</mu>
+                <mu2>1</mu2>
               </ode>
               <torsional>
                 <ode/>
@@ -978,7 +217,7 @@
         <enable_wind>0</enable_wind>
         <kinematic>0</kinematic>
       </link>
-      <link name='iris::iris/ground_truth/odometry_sensorgt_link'>
+      <link name='iris_demo::iris::iris/ground_truth/odometry_sensorgt_link'>
         <pose frame=''>0 0 0.194923 0 -0 0</pose>
         <inertial>
           <pose frame=''>0 0 0 0 -0 0</pose>
@@ -996,9 +235,9 @@
         <enable_wind>0</enable_wind>
         <kinematic>0</kinematic>
       </link>
-      <joint name='iris::iris/ground_truth/odometry_sensorgt_joint' type='revolute'>
-        <child>iris::iris/ground_truth/odometry_sensorgt_link</child>
-        <parent>iris::base_link</parent>
+      <joint name='iris_demo::iris::iris/ground_truth/odometry_sensorgt_joint' type='revolute'>
+        <child>iris_demo::iris::iris/ground_truth/odometry_sensorgt_link</child>
+        <parent>iris_demo::iris::base_link</parent>
         <axis>
           <xyz>0 0 1</xyz>
           <limit>
@@ -1024,7 +263,7 @@
           </ode>
         </physics>
       </joint>
-      <link name='iris::iris/imu_link'>
+      <link name='iris_demo::iris::iris/imu_link'>
         <inertial>
           <pose frame=''>0 0 0 0 -0 0</pose>
           <mass>0.15</mass>
@@ -1048,9 +287,9 @@
         <enable_wind>0</enable_wind>
         <kinematic>0</kinematic>
       </link>
-      <joint name='iris::iris/imu_joint' type='revolute'>
-        <child>iris::iris/imu_link</child>
-        <parent>iris::base_link</parent>
+      <joint name='iris_demo::iris::iris/imu_joint' type='revolute'>
+        <child>iris_demo::iris::iris/imu_link</child>
+        <parent>iris_demo::iris::base_link</parent>
         <axis>
           <xyz>0 0 1</xyz>
           <limit>
@@ -1076,7 +315,7 @@
           </ode>
         </physics>
       </joint>
-      <link name='iris::rotor_0'>
+      <link name='iris_demo::iris::rotor_0'>
         <pose frame=''>0.13 -0.22 0.217923 0 -0 0</pose>
         <inertial>
           <pose frame=''>0 0 0 0 -0 0</pose>
@@ -1133,9 +372,9 @@
         <enable_wind>0</enable_wind>
         <kinematic>0</kinematic>
       </link>
-      <joint name='iris::rotor_0_joint' type='revolute'>
-        <child>iris::rotor_0</child>
-        <parent>iris::base_link</parent>
+      <joint name='iris_demo::iris::rotor_0_joint' type='revolute'>
+        <child>iris_demo::iris::rotor_0</child>
+        <parent>iris_demo::iris::base_link</parent>
         <axis>
           <xyz>0 0 1</xyz>
           <limit>
@@ -1159,7 +398,7 @@
           </ode>
         </physics>
       </joint>
-      <link name='iris::rotor_1'>
+      <link name='iris_demo::iris::rotor_1'>
         <pose frame=''>-0.13 0.2 0.217923 0 -0 0</pose>
         <inertial>
           <pose frame=''>0 0 0 0 -0 0</pose>
@@ -1216,9 +455,9 @@
         <enable_wind>0</enable_wind>
         <kinematic>0</kinematic>
       </link>
-      <joint name='iris::rotor_1_joint' type='revolute'>
-        <child>iris::rotor_1</child>
-        <parent>iris::base_link</parent>
+      <joint name='iris_demo::iris::rotor_1_joint' type='revolute'>
+        <child>iris_demo::iris::rotor_1</child>
+        <parent>iris_demo::iris::base_link</parent>
         <axis>
           <xyz>0 0 1</xyz>
           <limit>
@@ -1242,7 +481,7 @@
           </ode>
         </physics>
       </joint>
-      <link name='iris::rotor_2'>
+      <link name='iris_demo::iris::rotor_2'>
         <pose frame=''>0.13 0.22 0.217923 0 -0 0</pose>
         <inertial>
           <pose frame=''>0 0 0 0 -0 0</pose>
@@ -1299,9 +538,9 @@
         <enable_wind>0</enable_wind>
         <kinematic>0</kinematic>
       </link>
-      <joint name='iris::rotor_2_joint' type='revolute'>
-        <child>iris::rotor_2</child>
-        <parent>iris::base_link</parent>
+      <joint name='iris_demo::iris::rotor_2_joint' type='revolute'>
+        <child>iris_demo::iris::rotor_2</child>
+        <parent>iris_demo::iris::base_link</parent>
         <axis>
           <xyz>0 0 1</xyz>
           <limit>
@@ -1325,7 +564,7 @@
           </ode>
         </physics>
       </joint>
-      <link name='iris::rotor_3'>
+      <link name='iris_demo::iris::rotor_3'>
         <pose frame=''>-0.13 -0.2 0.217923 0 -0 0</pose>
         <inertial>
           <pose frame=''>0 0 0 0 -0 0</pose>
@@ -1382,9 +621,9 @@
         <enable_wind>0</enable_wind>
         <kinematic>0</kinematic>
       </link>
-      <joint name='iris::rotor_3_joint' type='revolute'>
-        <child>iris::rotor_3</child>
-        <parent>iris::base_link</parent>
+      <joint name='iris_demo::iris::rotor_3_joint' type='revolute'>
+        <child>iris_demo::iris::rotor_3</child>
+        <parent>iris_demo::iris::base_link</parent>
         <axis>
           <xyz>0 0 1</xyz>
           <limit>
@@ -1409,7 +648,7 @@
         </physics>
       </joint>
       <static>0</static>
-      <link name='ZED_stereocamera::link'>
+      <link name='iris_demo::ZED_stereocamera::link'>
         <pose frame=''>0 0 0.14 0 1.57 0</pose>
         <inertial>
           <mass>0.159</mass>
@@ -1421,7 +660,6 @@
             <ixz>0</ixz>
             <iyz>0</iyz>
           </inertia>
-          <pose frame=''>0 0 0 0 -0 0</pose>
         </inertial>
         <collision name='collision'>
           <geometry>
@@ -1535,9 +773,9 @@
         <enable_wind>0</enable_wind>
         <kinematic>0</kinematic>
       </link>
-      <joint name='zed_stereocamera_mount' type='fixed'>
-        <parent>iris::base_link</parent>
-        <child>ZED_stereocamera::link</child>
+      <joint name='iris_demo::zed_stereocamera_mount' type='fixed'>
+        <parent>iris_demo::iris::base_link</parent>
+        <child>iris_demo::ZED_stereocamera::link</child>
       </joint>
       <plugin name='rotor_0_blade_1' filename='libLiftDragPlugin.so'>
         <a0>0.3</a0>
@@ -1553,7 +791,7 @@
         <cp>0.084 0 0</cp>
         <forward>0 1 0</forward>
         <upward>0 0 1</upward>
-        <link_name>iris::rotor_0</link_name>
+        <link_name>iris_demo::iris::rotor_0</link_name>
       </plugin>
       <plugin name='rotor_0_blade_2' filename='libLiftDragPlugin.so'>
         <a0>0.3</a0>
@@ -1569,7 +807,7 @@
         <cp>-0.084 0 0</cp>
         <forward>0 -1 0</forward>
         <upward>0 0 1</upward>
-        <link_name>iris::rotor_0</link_name>
+        <link_name>iris_demo::iris::rotor_0</link_name>
       </plugin>
       <plugin name='rotor_1_blade_1' filename='libLiftDragPlugin.so'>
         <a0>0.3</a0>
@@ -1585,7 +823,7 @@
         <cp>0.084 0 0</cp>
         <forward>0 1 0</forward>
         <upward>0 0 1</upward>
-        <link_name>iris::rotor_1</link_name>
+        <link_name>iris_demo::iris::rotor_1</link_name>
       </plugin>
       <plugin name='rotor_1_blade_2' filename='libLiftDragPlugin.so'>
         <a0>0.3</a0>
@@ -1601,7 +839,7 @@
         <cp>-0.084 0 0</cp>
         <forward>0 -1 0</forward>
         <upward>0 0 1</upward>
-        <link_name>iris::rotor_1</link_name>
+        <link_name>iris_demo::iris::rotor_1</link_name>
       </plugin>
       <plugin name='rotor_2_blade_1' filename='libLiftDragPlugin.so'>
         <a0>0.3</a0>
@@ -1617,7 +855,7 @@
         <cp>0.084 0 0</cp>
         <forward>0 -1 0</forward>
         <upward>0 0 1</upward>
-        <link_name>iris::rotor_2</link_name>
+        <link_name>iris_demo::iris::rotor_2</link_name>
       </plugin>
       <plugin name='rotor_2_blade_2' filename='libLiftDragPlugin.so'>
         <a0>0.3</a0>
@@ -1633,7 +871,7 @@
         <cp>-0.084 0 0</cp>
         <forward>0 1 0</forward>
         <upward>0 0 1</upward>
-        <link_name>iris::rotor_2</link_name>
+        <link_name>iris_demo::iris::rotor_2</link_name>
       </plugin>
       <plugin name='rotor_3_blade_1' filename='libLiftDragPlugin.so'>
         <a0>0.3</a0>
@@ -1649,7 +887,7 @@
         <cp>0.084 0 0</cp>
         <forward>0 -1 0</forward>
         <upward>0 0 1</upward>
-        <link_name>iris::rotor_3</link_name>
+        <link_name>iris_demo::iris::rotor_3</link_name>
       </plugin>
       <plugin name='rotor_3_blade_2' filename='libLiftDragPlugin.so'>
         <a0>0.3</a0>
@@ -1665,7 +903,7 @@
         <cp>-0.084 0 0</cp>
         <forward>0 1 0</forward>
         <upward>0 0 1</upward>
-        <link_name>iris::rotor_3</link_name>
+        <link_name>iris_demo::iris::rotor_3</link_name>
       </plugin>
       <plugin name='arducopter_plugin' filename='libArduPilotPlugin.so'>
         <fdm_addr>127.0.0.1</fdm_addr>
@@ -1685,7 +923,7 @@
           <i_min>0</i_min>
           <cmd_max>2.5</cmd_max>
           <cmd_min>-2.5</cmd_min>
-          <jointName>iris::rotor_0_joint</jointName>
+          <jointName>iris_demo::iris::rotor_0_joint</jointName>
           <multiplier>838</multiplier>
           <controlVelocitySlowdownSim>1</controlVelocitySlowdownSim>
         </control>
@@ -1699,7 +937,7 @@
           <i_min>0</i_min>
           <cmd_max>2.5</cmd_max>
           <cmd_min>-2.5</cmd_min>
-          <jointName>iris::rotor_1_joint</jointName>
+          <jointName>iris_demo::iris::rotor_1_joint</jointName>
           <multiplier>838</multiplier>
           <controlVelocitySlowdownSim>1</controlVelocitySlowdownSim>
         </control>
@@ -1713,7 +951,7 @@
           <i_min>0</i_min>
           <cmd_max>2.5</cmd_max>
           <cmd_min>-2.5</cmd_min>
-          <jointName>iris::rotor_2_joint</jointName>
+          <jointName>iris_demo::iris::rotor_2_joint</jointName>
           <multiplier>-838</multiplier>
           <controlVelocitySlowdownSim>1</controlVelocitySlowdownSim>
         </control>
@@ -1727,18 +965,30 @@
           <i_min>0</i_min>
           <cmd_max>2.5</cmd_max>
           <cmd_min>-2.5</cmd_min>
-          <jointName>iris::rotor_3_joint</jointName>
+          <jointName>iris_demo::iris::rotor_3_joint</jointName>
           <multiplier>-838</multiplier>
           <controlVelocitySlowdownSim>1</controlVelocitySlowdownSim>
         </control>
       </plugin>
-      <pose frame=''>-2.3371 0.024138 0 0 -0 0</pose>
     </model>
+    <magnetic_field>6e-06 2.3e-05 -4.2e-05</magnetic_field>
+    <atmosphere type='adiabatic'/>
+    <audio>
+      <device>default</device>
+    </audio>
+    <wind/>
+    <spherical_coordinates>
+      <surface_model>EARTH_WGS84</surface_model>
+      <latitude_deg>0</latitude_deg>
+      <longitude_deg>0</longitude_deg>
+      <elevation>0</elevation>
+      <heading_deg>0</heading_deg>
+    </spherical_coordinates>
     <state world_name='default'>
-      <sim_time>201 516000000</sim_time>
-      <real_time>235 316374174</real_time>
-      <wall_time>1648136166 601790709</wall_time>
-      <iterations>201516</iterations>
+      <sim_time>37 126000000</sim_time>
+      <real_time>55 438715848</real_time>
+      <wall_time>1653567420 509649245</wall_time>
+      <iterations>37126</iterations>
       <model name='ground_plane'>
         <pose frame=''>0 0 0 0 -0 0</pose>
         <scale>1 1 1</scale>
@@ -1750,113 +1000,60 @@
         </link>
       </model>
       <model name='iris_demo'>
-        <pose frame=''>-2.3371 0.024137 -0.000428 -0.002108 0 0</pose>
+        <pose frame=''>-1.93989 0.024269 -6.6e-05 -0.000559 -0 -0</pose>
         <scale>1 1 1</scale>
-        <link name='ZED_stereocamera::link'>
-          <pose frame=''>-2.3371 0.024432 0.139572 -1.20945 1.56854 -1.20945</pose>
-          <velocity>3e-06 1.9e-05 3.2e-05 -0.00014 -8e-06 6e-06</velocity>
-          <acceleration>0.005278 0.000176 -8.4e-05 -0.000317 -0.015112 0.380186</acceleration>
-          <wrench>0.000839 2.8e-05 -1.3e-05 0 -0 0</wrench>
+        <link name='iris_demo::ZED_stereocamera::link'>
+          <pose frame=''>-1.93989 0.024347 0.139934 -0.612363 1.56982 -0.612363</pose>
+          <velocity>-0 4e-06 1e-06 -3e-05 1e-06 -1e-06</velocity>
+          <acceleration>-0.000441 -7e-06 -0 2.3e-05 0.001181 -0.031559</acceleration>
+          <wrench>-7e-05 -1e-06 -0 0 -0 0</wrench>
         </link>
-        <link name='iris::base_link'>
-          <pose frame=''>-2.3371 0.024548 0.194495 -0.002108 0 0</pose>
-          <velocity>1e-06 2.7e-05 3.2e-05 -0.000139 3e-06 0</velocity>
-          <acceleration>0.001143 0.000211 -8e-05 -0.001081 0.005803 -1e-06</acceleration>
-          <wrench>0.001715 0.000317 -0.000119 0 -0 0</wrench>
+        <link name='iris_demo::iris::base_link'>
+          <pose frame=''>-1.93989 0.024378 0.194857 -0.000559 -0 -0</pose>
+          <velocity>-0 6e-06 1e-06 -3e-05 -0 -0</velocity>
+          <acceleration>-0.000152 -1e-06 -0 4e-06 -0.000767 -2e-06</acceleration>
+          <wrench>-0.000227 -1e-06 -0 0 -0 0</wrench>
         </link>
-        <link name='iris::iris/ground_truth/odometry_sensorgt_link'>
-          <pose frame=''>-2.3371 0.024548 0.194495 -0.002107 -0 -0</pose>
-          <velocity>2e-06 2.7e-05 3.2e-05 -0.00014 -1.1e-05 -0.000105</velocity>
-          <acceleration>0.003686 0.000219 -8.6e-05 -0.000792 -0.022107 -0.209228</acceleration>
-          <wrench>0.000553 3.3e-05 -1.3e-05 0 -0 0</wrench>
+        <link name='iris_demo::iris::iris/ground_truth/odometry_sensorgt_link'>
+          <pose frame=''>-1.93989 0.024378 0.194857 -0.000559 -0 0</pose>
+          <velocity>-0 6e-06 1e-06 -3e-05 1e-06 1.6e-05</velocity>
+          <acceleration>-0.000319 -4e-06 -0 -4.6e-05 0.001208 0.03278</acceleration>
+          <wrench>-4.8e-05 -1e-06 -0 0 -0 0</wrench>
         </link>
-        <link name='iris::iris/imu_link'>
-          <pose frame=''>-2.3371 0.024548 0.194495 -0.002107 -0 -0</pose>
-          <velocity>2e-06 2.7e-05 3.2e-05 -0.00014 -1.1e-05 -0.000105</velocity>
-          <acceleration>0.003572 0.000219 -8.5e-05 -0.000792 -0.02211 -0.209416</acceleration>
-          <wrench>0.000536 3.3e-05 -1.3e-05 0 -0 0</wrench>
+        <link name='iris_demo::iris::iris/imu_link'>
+          <pose frame=''>-1.93989 0.024378 0.194857 -0.000559 -0 0</pose>
+          <velocity>-0 6e-06 1e-06 -3e-05 1e-06 1.6e-05</velocity>
+          <acceleration>-0.000314 -3e-06 -0 -4.6e-05 0.001208 0.032799</acceleration>
+          <wrench>-4.7e-05 -1e-06 -0 0 -0 0</wrench>
         </link>
-        <link name='iris::rotor_0'>
-          <pose frame=''>-2.2071 -0.195404 0.217958 -0.002107 -0 0</pose>
-          <velocity>3e-06 3.1e-05 6.5e-05 -0.00014 -1.1e-05 -2e-06</velocity>
-          <acceleration>0.005531 0.001766 0.002906 -0.000792 -0.02167 0.000218</acceleration>
-          <wrench>0.000138 4.4e-05 7.3e-05 0 -0 0</wrench>
+        <link name='iris_demo::iris::rotor_0'>
+          <pose frame=''>-1.80989 -0.195609 0.21798 -0.000559 -0 0</pose>
+          <velocity>-0 6e-06 8e-06 -3e-05 1e-06 0</velocity>
+          <acceleration>-0.000485 -0.000123 -0.000145 -4.6e-05 0.00119 -1.6e-05</acceleration>
+          <wrench>-1.2e-05 -3e-06 -4e-06 0 -0 0</wrench>
         </link>
-        <link name='iris::rotor_1'>
-          <pose frame=''>-2.4671 0.224596 0.217073 -0.002107 -0 -3.5e-05</pose>
-          <velocity>0 2.9e-05 3e-06 -0.00014 -1.1e-05 -3e-06</velocity>
-          <acceleration>0.000703 -0.001232 -0.003071 -0.000801 -0.021736 0.000216</acceleration>
-          <wrench>1.8e-05 -3.1e-05 -7.7e-05 0 -0 0</wrench>
+        <link name='iris_demo::iris::rotor_1'>
+          <pose frame=''>-2.06989 0.224391 0.217745 -0.000559 -0 -3e-06</pose>
+          <velocity>-0 7e-06 -5e-06 -3e-05 1e-06 0</velocity>
+          <acceleration>-9.9e-05 0.000116 0.000145 -4.7e-05 0.001192 -1.3e-05</acceleration>
+          <wrench>-2e-06 3e-06 4e-06 0 -0 0</wrench>
         </link>
-        <link name='iris::rotor_2'>
-          <pose frame=''>-2.2071 0.244595 0.217031 -0.002107 -0 -1e-06</pose>
-          <velocity>0 3.1e-05 3e-06 -0.00014 -1.1e-05 -2e-06</velocity>
-          <acceleration>0.000409 0.001734 0.002561 -0.000842 -0.02178 0.000218</acceleration>
-          <wrench>1e-05 4.3e-05 6.4e-05 0 -0 0</wrench>
+        <link name='iris_demo::iris::rotor_2'>
+          <pose frame=''>-1.80989 0.244391 0.217734 -0.000559 -0 -0</pose>
+          <velocity>-0 6e-06 -6e-06 -3e-05 1e-06 0</velocity>
+          <acceleration>-7.8e-05 -0.000121 -0.000166 -4.6e-05 0.001194 -1.3e-05</acceleration>
+          <wrench>-2e-06 -3e-06 -4e-06 0 -0 0</wrench>
         </link>
-        <link name='iris::rotor_3'>
-          <pose frame=''>-2.4671 -0.175403 0.217916 -0.002107 -0 -3.6e-05</pose>
-          <velocity>3e-06 2.9e-05 5.9e-05 -0.00014 -1.1e-05 -3e-06</velocity>
-          <acceleration>0.005246 -0.001295 -0.002759 -0.00079 -0.021825 0.000223</acceleration>
-          <wrench>0.000131 -3.2e-05 -6.9e-05 0 -0 0</wrench>
-        </link>
-      </model>
-      <model name='robot'>
-        <pose frame=''>-6.7e-05 0 -6e-06 0 1e-06 0</pose>
-        <scale>1 1 1</scale>
-        <link name='robot_back_left_wheel'>
-          <pose frame=''>-0.229067 0.235 0.109994 0 -0.000606 0</pose>
-          <velocity>-7e-06 -4e-06 3.5e-05 4e-05 -6e-05 1e-06</velocity>
-          <acceleration>-0.006574 -0.004386 0.035151 0.039874 -0.059598 0.000612</acceleration>
-          <wrench>-0.042734 -0.02851 0.228484 0 -0 0</wrench>
-        </link>
-        <link name='robot_back_right_wheel'>
-          <pose frame=''>-0.229067 -0.235 0.109994 0 -0.000606 0</pose>
-          <velocity>-5e-06 -4e-06 2e-05 4e-05 -4.4e-05 0</velocity>
-          <acceleration>-0.004811 -0.004424 0.020108 0.04022 -0.043681 0.000437</acceleration>
-          <wrench>-0.03127 -0.028758 0.130701 0 -0 0</wrench>
-        </link>
-        <link name='robot_base_footprint'>
-          <pose frame=''>-6.7e-05 0 -6e-06 0 1e-06 0</pose>
-          <velocity>-0 0 3.9e-05 3.2e-05 -5e-05 6e-06</velocity>
-          <acceleration>-0.006294 -0.003796 0.039356 0.03215 -0.049647 0.005847</acceleration>
-          <wrench>-0.166386 -0.100362 1.04042 0 -0 0</wrench>
-        </link>
-        <link name='robot_front_left_wheel'>
-          <pose frame=''>0.228933 0.235 0.109993 0 -0.000606 0</pose>
-          <velocity>-7e-06 -3e-06 5.8e-05 2.3e-05 -6e-05 1e-06</velocity>
-          <acceleration>-0.006602 -0.002527 0.057884 0.022974 -0.05972 0.00062</acceleration>
-          <wrench>-0.04291 -0.016423 0.376247 0 -0 0</wrench>
-        </link>
-        <link name='robot_front_ptz_camera_pan_link'>
-          <pose frame=''>0.189933 0 0.369993 -0.000197 0.2618 -0.000759</pose>
-          <velocity>-1.9e-05 -1e-05 4.8e-05 -0.258787 -5e-05 -0.965919</velocity>
-          <acceleration>-0.018527 -0.010444 0.048414 1.35402 -0.05149 1.15891</acceleration>
-          <wrench>-0.001853 -0.001044 0.004841 0 -0 0</wrench>
-        </link>
-        <link name='robot_front_ptz_camera_tilt_link'>
-          <pose frame=''>0.189933 0 0.369993 -0.000199 0.261989 -0.000759</pose>
-          <velocity>-1.9e-05 -1.1e-05 4.8e-05 -0.258563 0.99995 -0.965982</velocity>
-          <acceleration>-0.018538 -0.010518 0.048413 0.781738 0.923942 1.54355</acceleration>
-          <wrench>-0.005561 -0.003155 0.014524 0 -0 0</wrench>
-        </link>
-        <link name='robot_front_right_wheel'>
-          <pose frame=''>0.228933 -0.235 0.109993 0 -0.000606 0</pose>
-          <velocity>-5e-06 -2e-06 4.3e-05 2.3e-05 -4.3e-05 0</velocity>
-          <acceleration>-0.004785 -0.002485 0.042793 0.0226 -0.04332 0.000439</acceleration>
-          <wrench>-0.0311 -0.016156 0.278153 0 -0 0</wrench>
+        <link name='iris_demo::iris::rotor_3'>
+          <pose frame=''>-2.06989 -0.175609 0.217969 -0.000559 -0 -3e-06</pose>
+          <velocity>-0 7e-06 7e-06 -3e-05 1e-06 0</velocity>
+          <acceleration>-0.000463 0.000118 0.000165 -4.7e-05 0.001196 -1.1e-05</acceleration>
+          <wrench>-1.2e-05 3e-06 4e-06 0 -0 0</wrench>
         </link>
       </model>
       <light name='sun'>
         <pose frame=''>0 0 10 0 -0 0</pose>
       </light>
     </state>
-    <gui fullscreen='0'>
-      <camera name='user_camera'>
-        <pose frame=''>4.6286 4.49567 1.01114 0 0.059643 -2.53262</pose>
-        <view_controller>orbit</view_controller>
-        <projection_type>perspective</projection_type>
-      </camera>
-    </gui>
   </world>
 </sdf>
