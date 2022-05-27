@@ -1,3 +1,6 @@
+Tmux is a tool used to start sessions on a remote server and provides the capability to disconnect from that remote server without terminating the session.
+It is very helpful when training RL on a remote server.
+
 how to use tmux to run sessions on server
 ```
 sudo apt install tmux
