@@ -140,8 +140,7 @@ class Environment:
         
         # Initialize yaw to zero
         self.initial_pose()
-
-        self.checkpoint  = 0 
+ 
         # Reset to initial positions
         self.x_initial = 0.0
         self.y_initial = 0.0
@@ -186,6 +185,12 @@ class Environment:
         self.new_pose = False
 
         self.detector = center_detector()
+        self.distance_x = 0
+        self.distance_y = 0
+        self.ddist_x = 0
+        self.ddist_y = 0
+        self.dt = 0
+        self.time_prev = 0
 
 
     def initial_pose(self):
@@ -330,9 +335,9 @@ class Environment:
         self.new_pose = True
 
     def TargetCallback(self,msg):
-        self.x_initial = msg.pose.pose.position.x
-        self.y_initial = msg.pose.pose.position.y
-        # print('target ', self.x_initial, self.y_initial)
+        self.x_initial = (-1.0)*msg.pose.pose.position.y  
+        self.y_initial = msg.pose.pose.position.x + 2.0   #initial relative position of drone, odom doesnt use global coordinates!
+        # the above signs and additions are needed to transform the frames coords
 
     def DetectCallback(self, msg):
         #we need updated values for attitude thus
@@ -344,6 +349,16 @@ class Environment:
             # Read Current detection
             self.box = msg
             self.distance_x, self.distance_y = self.detector.compute(self.box, self.roll, self.pitch, self.z_position)
+
+            #time synching for differantiation
+            rostime_now = rospy.get_rostime()
+            self.time_now = rostime_now.to_nsec()
+            if self.time_prev == 0:
+                self.dt = 0
+            else:
+                self.dt = (self.time_now - self.time_prev)/1e9
+            self.time_prev = self.time_now
+            
             # print(self.distance, self.angle, self.z_position)
             # print(self.angle, self.yaw)
             if self.distance_x == 10000 and self.distance_y == 10000 :
@@ -360,8 +375,7 @@ class Environment:
 
             if self.done:
                 self.go_to_start()
-                if abs(self.x_position-self.x_initial)<0.01 and abs(self.y_position-self.y_initial)<0.01 and abs(self.z_position-self.z_initial)<0.01 :
-                    print('drone ', self.x_position,self.y_position)
+                if abs(self.x_position-self.x_initial)<0.1 and abs(self.y_position-self.y_initial)<0.1 and abs(self.z_position-self.z_initial)<0.1 :
                     self.reset()                 
                     print("Reset")                   
                     print("Begin Episode %d" %self.current_episode)      
@@ -372,13 +386,24 @@ class Environment:
                 max_distance_y = 360
                 max_velocity = 2 #m/s
                 max_angle = 90 #degrees #bad name of variable ,be careful there is angle_max too for pitch and roll.
+                max_derivative = 60
 
                 #STATE
+                #dt is around 0.1 as the mavros topic runs at 10Hz
+                if self.dt == 0:
+                    self.ddist_x = 0
+                    self.ddist_y = 0
+                else:
+                    self.ddist_x = ( self.distance_x - int(self.previous_state[0]*max_distance_x) ) / self.dt
+                    self.ddist_y = ( self.distance_y - int(self.previous_state[1]*max_distance_y) ) / self.dt
+                    # values -> 2,4,6 pixels (because of resolution reduction in BoxToCenter)
+                    # most common 2 pixels movement , /0.1 === *10 => 20 is the most common value 
+                # ! bad resolution
+
+                # print(min(self.ddist_y/max_derivative, 1))
                 #normalized values only -> [0,1]
-                self.current_state = np.array([self.distance_x/max_distance_x, self.distance_y/max_distance_y])
+                self.current_state = np.array([self.distance_x/max_distance_x, self.distance_y/max_distance_y, min(self.ddist_x/max_derivative, 1), min(self.ddist_y/max_derivative, 1)])
 
-
-                print(self.distance_x, self.distance_y)
 
                 # Compute reward from the 2nd timestep and after
                 if self.timestep > 1:
@@ -395,6 +420,10 @@ class Environment:
                     # weight_velocity = 60
                     #max 50
 
+                    #penalize derivative error
+                    velocity_error = min(abs(self.ddist_x/max_derivative),1) + min(abs(self.ddist_y/max_derivative),1)
+                    weight_velocity = 30
+
                     # penalize big roll and pitch values
                     #could do it with sqrt
                     action = abs(self.action[0])/angle_max + abs(self.action[1])/angle_max + abs(self.action[2])/yaw_max
@@ -402,9 +431,9 @@ class Environment:
 
                     #use minus because we want to maximize reward
                     self.reward  = -weight_position*position_error 
-                    # self.reward += -weight_velocity*velocity_error
+                    self.reward += -weight_velocity*velocity_error
                     self.reward += -weight_action*action
-                    self.reward = self.reward/230 # -> reward is between [-1,0]
+                    self.reward = self.reward/290 # -> reward is between [-1,0]
                     
                     # Record s,a,r,s'
                     buffer.record((self.previous_state, self.action, self.reward, self.current_state ))
@@ -508,7 +537,7 @@ if __name__=='__main__':
     tf.compat.v1.enable_eager_execution()
 
     num_actions = 3 
-    num_states = 2  
+    num_states = 4  
 
     angle_max = 3.0 
     angle_min = -3.0 # constraints for commanded roll and pitch

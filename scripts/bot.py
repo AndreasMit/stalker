@@ -7,99 +7,110 @@ import time
 import random
 import math
 import signal
+from stalker.msg import PREDdata
 
 # maybe use this topic to create trajectories?
 # /move_base_simple/goal - geometry_msgs/PoseStamped
 
+class controller:
 
-def publishVelocities(u, omega):
-    velMsg = Twist()
+    def __init__(self):
+        self.pub_vel = rospy.Publisher('/robot/robotnik_base_control/cmd_vel/',Twist,queue_size=1) #queue size 1 so that we can stop the execution when we want
+        self.sub_detector = rospy.Subscriber("/box", PREDdata, self.box_callback)
+        self.outofbounds = False
+        self.prev = False
+        self.linearVel = 0.55
+        self.angularVel = random.sample([0.4, 0.9, 1.4, 1.9], 1)[0]
+        # Set sig handler for proper termination #
+        signal.signal(signal.SIGINT, self.sigHandler)
+        signal.signal(signal.SIGTERM, self.sigHandler)
+        signal.signal(signal.SIGTSTP, self.sigHandler)
 
-    velMsg.linear.x = u
-    velMsg.linear.y = 0.0
-    velMsg.linear.z = 0.0
+    def control(self):
+        count = 0
+        while True:
 
-    velMsg.angular.x = 0.0
-    velMsg.angular.y = 0.0
-    velMsg.angular.z = omega
+            if self.outofbounds == False:
+                if self.prev == True: #if we didnt have a box and now we do have it, wait a bit so that the drone can align over it before starting moving again.
+                    time.sleep(3) # probably less!
+                    continue
 
-    # Publish velocities #
-    pub_vel.publish(velMsg)
+                # Expondential decay #
+                if abs(self.angularVel) > 0.05:
+                    self.angularVel *= 0.999977
+                else:
+                    # Reset angular velocity 
+                    self.angularVel = random.sample([0.4, 0.9, 1.4, 1.9], 1)[0]
 
-# Stop robot #
-def stopLeader():
-    velMsg = Twist()
+                    # Change sign #
+                    count += 1
+                    if count == 1:
+                        self.angularVel *= -1
+                        count = 0
 
-    velMsg.linear.x = 0.0
-    velMsg.linear.y = 0.0
-    velMsg.linear.z = 0.0
+            
+                # print("Bot(Leader): (uL: {} m/s, omegaL: {} r/s)".format(self.linearVel, self.angularVel))
+                # Push commands #
+                self.publishVelocities(self.linearVel, self.angularVel)
+            else:
+                # print('stopping leader')
+                self.stopLeader()
 
-    velMsg.angular.x = 0.0
-    velMsg.angular.y = 0.0
-    velMsg.angular.z = 0.0
+        # Stop movement #
+        # self.stopLeader()
 
-    count = 0
-    while count < 30:
-        pub_vel.publish(velMsg)
-        count += 1
+    def box_callback(self,box):
+        if self.outofbounds == True:
+            self.prev = True
+        else:
+             self.prev = False
 
-
-def sigHandler(num, frame):
-
-    print("Signal occurred:  " + str(num))
+        if box.box_1==(0,0) and box.box_2==(0,0) and box.box_3==(0,0) and box.box_4==(0,0):
+            self.outofbounds = True
+        else:
+            self.outofbounds = False
+      
+    def publishVelocities(self, u, omega):
+        velMsg = Twist()
+        velMsg.linear.x = u
+        velMsg.linear.y = 0.0
+        velMsg.linear.z = 0.0
+        velMsg.angular.x = 0.0
+        velMsg.angular.y = 0.0
+        velMsg.angular.z = omega
+        # Publish velocities #
+        self.pub_vel.publish(velMsg)
 
     # Stop robot #
-    stopLeader()
+    def stopLeader(self):
+        velMsg = Twist()
+        velMsg.linear.x = 0.0
+        velMsg.linear.y = 0.0
+        velMsg.linear.z = 0.0
+        velMsg.angular.x = 0.0
+        velMsg.angular.y = 0.0
+        velMsg.angular.z = 0.0
 
-    # Close ros #
-    rospy.signal_shutdown(0)
-    exit()
+        for _ in range(30):
+            self.pub_vel.publish(velMsg)
 
+
+    def sigHandler(self, num, frame):
+        print("Signal occurred:  " + str(num))
+        # Stop robot 
+        self.stopLeader()
+        # Close ros
+        # rospy.signal_shutdown(0)
+        exit()
 
 
 if __name__=='__main__':
     rospy.init_node('bot', anonymous=True)
+    print('starting bot')
+    c = controller()
+    c.control()
 
-    pub_vel = rospy.Publisher('/robot/robotnik_base_control/cmd_vel/',Twist,queue_size=10000)
+    while not rospy.is_shutdown:
+        r.sleep()    
 
-    # Set sig handler for proper termination #
-    signal.signal(signal.SIGINT, sigHandler)
-    signal.signal(signal.SIGTERM, sigHandler)
-    signal.signal(signal.SIGTSTP, sigHandler)
-
-    linearVel = 0.55
-    endTime = time.time() + 60 * 0.1 # Run for 4 min the experiment
-
-    # Create bucket of angular velocities #
-    samplesAngular = set()
-    num = 0.4
-    while num <= 2.0:
-        samplesAngular.add(num)
-        num += 0.5
-
-    # Pick initial random angular velocity #
-    angularVel = random.sample(samplesAngular, 1)[0]
-
-    count = 0
-    # Take random actions #
-    while time.time() < endTime:
-
-        # Expondential decay #
-        if abs(angularVel) > 0.05:
-            angularVel *= 0.999977
-        else:
-            # Reset angular velocity #
-            angularVel = random.sample(samplesAngular, 1)[0]
-
-            # Change sign #
-            count += 1
-            if count == 1:
-                angularVel *= -1
-                count = 0
-
-        print("Bot(Leader): (uL: {} m/s, omegaL: {} r/s)".format(linearVel, angularVel))
-        # Push commands #
-        publishVelocities(linearVel, angularVel)
-
-    # Stop movement #
-    stopLeader()
+    rospy.spin() 
