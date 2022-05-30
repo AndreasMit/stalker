@@ -172,7 +172,7 @@ class Environment:
         self.previous_action = np.zeros(num_actions)
         self.done = False
         self.max_timesteps = 1024
-        self.ngraph = 0
+        self.ngraph = 4
         
         # Define Subscriber
         self.sub_detector = rospy.Subscriber("/box", PREDdata, self.DetectCallback)
@@ -187,6 +187,7 @@ class Environment:
         self.detector = center_detector()
         self.distance_x = 0
         self.distance_y = 0
+        self.angle = 0
         self.ddist_x = 0
         self.ddist_y = 0
         self.dt = 0
@@ -297,6 +298,7 @@ class Environment:
             plt.figure()
             plt.plot(distances_x, 'b')
             plt.plot(distances_y, 'r')
+            plt.plot(angles, 'g')
             plt.grid()
             plt.savefig('/home/andreas/andreas/catkin_ws/src/stalker/scripts/checkpoints/follow'+str(checkpoint)+'/try'+str(ntry)+'/distancexy'+str(self.ngraph))
 
@@ -307,6 +309,7 @@ class Environment:
             avg_reward_list.clear()
             distances_x.clear()
             distances_y.clear()
+            angles.clear()
 
 
         # Reset episodic reward and timestep to zero
@@ -348,7 +351,7 @@ class Environment:
             self.new_pose = False
             # Read Current detection
             self.box = msg
-            self.distance_x, self.distance_y = self.detector.compute(self.box, self.roll, self.pitch, self.z_position)
+            self.distance_x, self.distance_y, self.angle = self.detector.compute(self.box, self.roll, self.pitch, self.z_position)
 
             #time synching for differantiation
             rostime_now = rospy.get_rostime()
@@ -374,6 +377,7 @@ class Environment:
                 self.reset()                 
                 print("Reset")                   
                 print("Begin Episode %d" %self.current_episode)
+                #we miss 2 timesteps between episodes while bot is still moving
                 
             #only when exceeding bounds we do the following
             if self.done:
@@ -401,31 +405,28 @@ class Environment:
                     self.ddist_y = ( self.distance_y - int(self.previous_state[1]*max_distance_y) ) / self.dt
                     # values -> 2,4,6 pixels (because of resolution reduction in BoxToCenter)
                     # most common 2 pixels movement , /0.1 === *10 => 20 is the most common value 
-                # ! bad resolution
-
+                # ! bad reslution
+                
+                # print(self.angle)
                 # print(min(self.ddist_y/max_derivative, 1))
                 #normalized values only -> [0,1]
-                self.current_state = np.array([self.distance_x/max_distance_x, self.distance_y/max_distance_y, min(self.ddist_x/max_derivative, 1), min(self.ddist_y/max_derivative, 1)])
+                self.current_state = np.array([self.distance_x/max_distance_x, self.distance_y/max_distance_y, self.angle/max_angle])
+                 # min(self.ddist_x/max_derivative, 1), min(self.ddist_y/max_derivative, 1)])
 
 
                 # Compute reward from the 2nd timestep and after
                 if self.timestep > 1:
 
                     #REWARD
-                    angle_error = 0
-                    distance_error = abs(self.distance_x)/max_distance_x + abs(self.distance_y)/max_distance_y
+                    angle_error = abs(self.angle)/max_angle
+                    distance_error = abs(self.distance_x)/max_distance_x + abs(self.distance_y)/max_distance_y 
                     position_error = distance_error + angle_error 
                     weight_position = 100
                     #max 200
 
-                    #penalize velocity error
-                    # velocity_error = min(abs(self.y_velocity)/max_velocity, 1) + min( abs(self.x_velocity - self.desired_vel_x)/max_velocity, 1)
-                    # weight_velocity = 60
-                    #max 50
-
                     #penalize derivative error
-                    velocity_error = min(abs(self.ddist_x/max_derivative),1) + min(abs(self.ddist_y/max_derivative),1)
-                    weight_velocity = 30
+                    # velocity_error = min(abs(self.ddist_x/max_derivative),1) + min(abs(self.ddist_y/max_derivative),1)
+                    # weight_velocity = 30
 
                     # penalize big roll and pitch values
                     #could do it with sqrt
@@ -434,9 +435,9 @@ class Environment:
 
                     #use minus because we want to maximize reward
                     self.reward  = -weight_position*position_error 
-                    self.reward += -weight_velocity*velocity_error
+                    # self.reward += -weight_velocity*velocity_error
                     self.reward += -weight_action*action
-                    self.reward = self.reward/290 # -> reward is between [-1,0]
+                    self.reward = self.reward/330 # -> reward is between [-1,0]
                     
                     # Record s,a,r,s'
                     buffer.record((self.previous_state, self.action, self.reward, self.current_state ))
@@ -448,7 +449,8 @@ class Environment:
                     update_target(target_actor.variables, actor_model.variables, tau)
                     update_target(target_critic.variables, critic_model.variables, tau) 
                     distances_x.append(self.distance_x/max_distance_x)
-                    distances_y.append(self.distance_y/max_distance_y) 
+                    distances_y.append(self.distance_y/max_distance_y)
+                    angles.append(self.angle/max_angle) 
 
                     
                 self.previous_action = self.action                  
@@ -540,7 +542,7 @@ if __name__=='__main__':
     tf.compat.v1.enable_eager_execution()
 
     num_actions = 3 
-    num_states = 4  
+    num_states = 3  
 
     angle_max = 3.0 
     angle_min = -3.0 # constraints for commanded roll and pitch
@@ -549,7 +551,7 @@ if __name__=='__main__':
 
 
     checkpoint = 0 #checkpoint try
-    ntry = 0
+    ntry = 1
 
     actor_model = get_actor()
     print("Actor Model Summary")
@@ -567,11 +569,11 @@ if __name__=='__main__':
     target_critic.set_weights(critic_model.get_weights())
 
     # Load pretrained weights
-    actor_model.load_weights('/home/andreas/andreas/catkin_ws/src/stalker/scripts/checkpoints/follow'+str(checkpoint)+'/try'+str(ntry)+'/ddpg_actor.h5')
-    critic_model.load_weights('/home/andreas/andreas/catkin_ws/src/stalker/scripts/checkpoints/follow'+str(checkpoint)+'/try'+str(ntry)+'/ddpg_critic.h5')
+    # actor_model.load_weights('/home/andreas/andreas/catkin_ws/src/stalker/scripts/checkpoints/follow'+str(checkpoint)+'/try'+str(ntry)+'/ddpg_actor.h5')
+    # critic_model.load_weights('/home/andreas/andreas/catkin_ws/src/stalker/scripts/checkpoints/follow'+str(checkpoint)+'/try'+str(ntry)+'/ddpg_critic.h5')
 
-    target_actor.load_weights('/home/andreas/andreas/catkin_ws/src/stalker/scripts/checkpoints/follow'+str(checkpoint)+'/try'+str(ntry)+'/ddpg_target_actor.h5')
-    target_critic.load_weights('/home/andreas/andreas/catkin_ws/src/stalker/scripts/checkpoints/follow'+str(checkpoint)+'/try'+str(ntry)+'/ddpg_target_critic.h5')
+    # target_actor.load_weights('/home/andreas/andreas/catkin_ws/src/stalker/scripts/checkpoints/follow'+str(checkpoint)+'/try'+str(ntry)+'/ddpg_target_actor.h5')
+    # target_critic.load_weights('/home/andreas/andreas/catkin_ws/src/stalker/scripts/checkpoints/follow'+str(checkpoint)+'/try'+str(ntry)+'/ddpg_target_critic.h5')
 
     # Learning rate for actor-critic models
     critic_lr = 0.001
@@ -594,6 +596,7 @@ if __name__=='__main__':
 
     distances_x = []
     distances_y = []
+    angles = []
     rewards = []
 
     Environment()

@@ -20,7 +20,8 @@ class center_detector:
 		if box.box_1==(0,0) and box.box_2==(0,0) and box.box_3==(0,0) and box.box_4==(0,0):
 			distance_y = 10000
 			distance_x = 10000
-			return distance_x, distance_y
+			angle = 0
+			return distance_x, distance_y, angle 
 
 		else:
 
@@ -73,7 +74,7 @@ class center_detector:
 			distance_y = distance_y//2 #lower resolution
 			distance_y = distance_y*2
 
-			return distance_x, distance_y
+			return distance_x, distance_y, angle
 
 
 		#phi and theta need to be in rads
