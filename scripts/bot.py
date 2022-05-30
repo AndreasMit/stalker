@@ -32,32 +32,23 @@ class controller:
 
             if self.outofbounds == False:
                 if self.prev == True: #if we didnt have a box and now we do have it, wait a bit so that the drone can align over it before starting moving again.
-                    time.sleep(3) # probably less!
-                    continue
-
-                # Expondential decay #
-                if abs(self.angularVel) > 0.05:
-                    self.angularVel *= 0.999977
+                    time.sleep(5)
+                    
                 else:
-                    # Reset angular velocity 
-                    self.angularVel = random.sample([0.4, 0.9, 1.4, 1.9], 1)[0]
-
-                    # Change sign #
-                    count += 1
-                    if count == 1:
-                        self.angularVel *= -1
-                        count = 0
-
-            
-                # print("Bot(Leader): (uL: {} m/s, omegaL: {} r/s)".format(self.linearVel, self.angularVel))
-                # Push commands #
-                self.publishVelocities(self.linearVel, self.angularVel)
+                    # Expondential decay #
+                    if abs(self.angularVel) > 0.05:
+                        self.angularVel *= 0.999977
+                    else:
+                        # Reset angular velocity 
+                        self.angularVel = random.sample([0.4, 0.9, 1.4, 1.9], 1)[0]
+                        self.angularVel = (-1)*self.angularVel
+                
+                    # print("Bot(Leader): (uL: {} m/s, omegaL: {} r/s)".format(self.linearVel, self.angularVel))
+                    self.publishVelocities(self.linearVel, self.angularVel)
             else:
                 # print('stopping leader')
                 self.stopLeader()
 
-        # Stop movement #
-        # self.stopLeader()
 
     def box_callback(self,box):
         if self.outofbounds == True:
