@@ -19,7 +19,7 @@ class controller:
         self.sub_detector = rospy.Subscriber("/box", PREDdata, self.box_callback)
         self.outofbounds = False
         self.prev = False
-        self.linearVel = 0.55
+        self.linearVel = 2
         self.angularVel = random.sample([0.4, 0.9, 1.4, 1.9], 1)[0]
         # Set sig handler for proper termination #
         signal.signal(signal.SIGINT, self.sigHandler)
@@ -27,12 +27,14 @@ class controller:
         signal.signal(signal.SIGTSTP, self.sigHandler)
 
     def control(self):
-        count = 0
+        sign = 0
+        counter = 0
         while True:
 
             if self.outofbounds == False:
                 if self.prev == True: #if we didnt have a box and now we do have it, wait a bit so that the drone can align over it before starting moving again.
                     time.sleep(5)
+                    counter = 0
                     
                 else:
                     # Expondential decay #
@@ -41,8 +43,23 @@ class controller:
                     else:
                         # Reset angular velocity 
                         self.angularVel = random.sample([0.4, 0.9, 1.4, 1.9], 1)[0]
-                        self.angularVel = (-1)*self.angularVel
+                        if sign == 0:
+                            self.angularVel = self.angularVel
+                            sign = 1
+                        else:
+                            self.angularVel = (-1)*self.angularVel
+                            sign = 0
+                        
+                        # a random stop in between timesteps in case we lose summit
+                        if counter == 30 :
+                            print('random stop')
+                            self.stopLeader()
+                            time.sleep(5)
+
+                            counter = 0
                 
+                        counter += 1
+                    # print(self.angularVel)
                     # print("Bot(Leader): (uL: {} m/s, omegaL: {} r/s)".format(self.linearVel, self.angularVel))
                     self.publishVelocities(self.linearVel, self.angularVel)
             else:

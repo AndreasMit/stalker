@@ -162,13 +162,13 @@ class Environment:
         # Reset to initial positions
         self.x_initial = 0.0
         self.y_initial = 0.0
-        self.z_initial = 5.0
+        self.z_initial = 7.0
         self.yaw_initial = 90.0
 
         #initialize current position
         self.x_position = 0.0
         self.y_position = 0.0
-        self.z_position= 5.0
+        self.z_position= 7.0
         self.x_velocity = 0.0
         self.y_velocity = 0.0
         self.z_velocity = 0.0 
@@ -192,7 +192,8 @@ class Environment:
         self.action = np.zeros(num_actions)
         self.previous_action = np.zeros(num_actions)
         self.done = False
-        self.max_timesteps = 512
+        self.max_timesteps = 1024
+        self.ngraph = 0
 
         self.sum_return = 0.0 
         self.sum_timesteps = 0 #sum_length
@@ -204,7 +205,7 @@ class Environment:
         
         # Define line taken from detector
         self.box = PREDdata()
-        self.desired_pos_z = 5.0
+        self.desired_pos_z = 7.0
         self.desired_vel_x = 1
         self.distance, self.angle = 0, 0
         self.new_pose = False
@@ -331,6 +332,40 @@ class Environment:
         print("timesteps of this episode ", self.timestep)
         avg_reward_list.append(avg_reward)
 
+        if self.current_episode % 10 == 0.0:
+            actor_model.save_weights("/home/andreas/andreas/catkin_ws/src/stalker/scripts/checkpoints/ppo/st_co"+str(checkpoint)+"/try"+str(ntry)+"/ddpg_actor.h5")
+            critic_model.save_weights("/home/andreas/andreas/catkin_ws/src/stalker/scripts/checkpoints/ppo/st_co"+str(checkpoint)+"/try"+str(ntry)+"/ddpg_critic.h5")
+            target_actor.save_weights("/home/andreas/andreas/catkin_ws/src/stalker/scripts/checkpoints/ppo/st_co"+str(checkpoint)+"/try"+str(ntry)+"/ddpg_target_actor.h5")
+            target_critic.save_weights("/home/andreas/andreas/catkin_ws/src/stalker/scripts/checkpoints/ppo/st_co"+str(checkpoint)+"/try"+str(ntry)+"/ddpg_target_critic.h5")    
+            print("-----Weights saved-----")     
+
+            plt.figure() 
+            plt.plot(ep_reward_list, 'b')
+            plt.plot(avg_reward_list, 'r')
+            plt.ylabel('Score')
+            plt.xlabel('Episodes')
+            plt.grid()
+            plt.savefig('/home/andreas/andreas/catkin_ws/src/stalker/scripts/checkpoints/ppo/st_co'+str(checkpoint)+'/try'+str(ntry)+'/ddpg_score'+str(self.ngraph))
+            print("-----Plots saved-----")
+            # plt.figure(1)
+            # plt.scatter(distances, angles, c=rewards)
+            # plt.grid()
+            # plt.savefig('/home/andreas/andreas/catkin_ws/src/stalker/scripts/checkpoints/st_co'+str(checkpoint)+'/reward_per_error'+str(ntry)+'')
+            plt.figure()
+            plt.plot(distances, 'b')
+            plt.plot(angles, 'r')
+            plt.grid()
+            plt.savefig('/home/andreas/andreas/catkin_ws/src/stalker/scripts/checkpoints/ppo/st_co'+str(checkpoint)+'/try'+str(ntry)+'/distance_and_angle'+str(self.ngraph))
+
+        if self.current_episode % 150 == 0.0:
+            self.ngraph += 1
+            #we do this so we reduce memory used and take less time to save the graphs (less delay in training)
+            ep_reward_list.clear()
+            avg_reward_list.clear()
+            distances.clear()
+            angles.clear()
+
+
         if (self.sum_timesteps> self.steps_per_epoch):
             last_value = critic(self.observation)
         else: #exceeded bounds
@@ -381,12 +416,17 @@ class Environment:
             # print(self.angle, self.yaw)
             if self.distance == 10000 and self.angle == 0 :
                 self.exceeded_bounds = True
+            elif abs(self.angle) < 0.5 and abs(self.distance) > 270: # this case is when the box is on the edge of the image and its not really vertical
+                self.exceeded_bounds = True
+            elif abs(self.angle) > 89.5: # this includes being vertical to the pavement but also cases when the detection is on the edge of image and is not reliable
+                self.exceeded_bounds = True 
+
             elif abs(self.distance) < self.good_distance and abs(self.angle) < self.good_angle and self.angle!=0:
                 # print('good position')
                 # print(self.distance, self.angle)
                 self.x_initial = self.x_position
                 self.y_initial = self.y_position
-                # self.z_initial = self.z_position #keep it to 5 meters
+                # self.z_initial = self.z_position #keep it to 7 meters
                 self.yaw_initial = self.yaw
 
             # Check done signal which indicates whether s' is terminal. The episode is terminated when the quadrotor is out of bounds or after a max # of timesteps
@@ -396,8 +436,15 @@ class Environment:
             elif self.sum_timesteps > self.steps_per_epoch and not self.done:
                 print("Reached max number of timesteps --> Return to initial position")   
                 self.done = True 
+                self.reward += 100
 
             if self.done:
+                if self.timestep < 10: #for some reason we have a false detection of good position
+                    self.x_initial = 0.0
+                    self.y_initial = 0.0
+                    self.z_initial = 7.0
+                    self.yaw_initial = 90.0
+
                 # instead go to last frame that had detection
                 if not self.to_start:
                     self.go_to_start()
@@ -424,7 +471,7 @@ class Environment:
 
                 #STATE
                 #normalized values only -> [0,1]
-                self.observation_new = np.array([self.distance/max_distance , self.angle/max_angle , self.x_velocity/max_velocity])
+                self.observation_new = np.array([self.distance/max_distance, np.clip(self.y_velocity/max_velocity, -1, 1), self.angle/max_angle , np.clip((self.x_velocity - self.desired_vel_x)/max_velocity,-1 , 1)])
 
                 # Compute reward from the 2nd timestep and after
                 if self.timestep > 1:
@@ -432,30 +479,27 @@ class Environment:
                     #REWARD
 
                     #penalize big angle and distance from center
-                    if self.angle < 2 and abs(self.distance) > 260: # this case is when the box is on the edge of the image and its not realy vertical
-                        angle_error = 1
-                    else:
-                        angle_error = abs(self.angle)/max_angle
-
-                    position_error = abs(self.distance)/max_distance + angle_error
-                    weight_position = 50
+                    angle_error = abs(self.angle)/max_angle
+                    distance_error = abs(self.distance)/max_distance
+                    position_error = distance_error + angle_error
+                    weight_position = 100
                     #max 100
                     # print(angle_error, abs(self.distance))
 
                     #penalize velocity error
-                    velocity_error = abs(self.x_velocity - self.desired_vel_x)/max_velocity
-                    weight_velocity = 40
+                    velocity_error = min(abs(self.y_velocity)/max_velocity, 1) + min( abs(self.x_velocity - self.desired_vel_x)/max_velocity, 1)
+                    weight_velocity = 60
                     #max 40
 
                     # penalize big roll and pitch values
                     #could do it with sqrt
-                    action = abs(self.action[0])/angle_max + abs(self.action[1])/angle_max + abs(self.action[2])/yaw_max
+                    action = abs(self.action[0])/angle_max + abs(self.action[1])/angle_max 
                     weight_action = 10
                     #max 30
 
                     #penalize changes in yaw
-                    yaw_smooth = abs(self.action[2]-self.previous_action[2])/yaw_max
-                    weight_yaw = 30
+                    yaw_smooth = abs(self.action[2])/yaw_max
+                    weight_yaw = 10
                     #max 30
 
                     #total max 200
@@ -467,7 +511,7 @@ class Environment:
                     self.reward += -weight_velocity*velocity_error
                     self.reward += -weight_action*action
                     self.reward += -weight_yaw*yaw_smooth
-                    self.reward = self.reward/200 # -> reward is between [-1,0]
+                    self.reward = self.reward/350 # -> reward is between [-1,0]
                     # dont use the above if you are using 'shaping'
                    
                     # print(self.reward)
@@ -475,6 +519,8 @@ class Environment:
 
                     # Store obs, act, rew, v_t, logp_pi_t
                     buffer.store(self.observation, self.action, self.reward, self.value_t, self.logprobability_t)
+                    angles.append(self.angle/max_angle)
+                    distances.append(self.distance/max_distance)
 
                 tf_observation = tf.expand_dims(tf.convert_to_tensor(self.observation_new), 0)
                 tf_action = tf.squeeze(actor(tf_observation))
@@ -528,13 +574,13 @@ if __name__=='__main__':
     target_kl = 0.01
     hidden_sizes = (64, 64)
 
-    observation_dimensions = 3
+    observation_dimensions = 4
     num_actions = 3
 
     angle_max = 3.0 
     angle_min = -3.0 # constraints for commanded roll and pitch
-    yaw_max = 2.0 #how much yaw should change every time
-    yaw_min = -2.0
+    yaw_max = 5.0 #how much yaw should change every time
+    yaw_min = -5.0
 
     max_vel_up = 1.5 # Real one is 2.5
     max_vel_down = -1.5 # constraints for commanded vertical velocity
@@ -561,7 +607,10 @@ if __name__=='__main__':
     # To store average reward history of last few episodes
     avg_reward_list = [] 
     episodes = []
-   
+    distances = []
+    angles = []
+    rewards = []
+
     Environment()
     r = rospy.Rate(20)
     while not rospy.is_shutdown:

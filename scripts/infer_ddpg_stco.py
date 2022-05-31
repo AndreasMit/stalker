@@ -226,7 +226,7 @@ class Environment:
 
                 #STATE
                 #normalized values only -> [0,1]
-                self.current_state = np.array([self.distance/max_distance, min(self.y_velocity/max_velocity, 1), self.angle/max_angle , min((self.x_velocity - self.desired_vel_x)/max_velocity, 1)])
+                self.current_state = np.array([self.distance/max_distance, np.clip(self.y_velocity/max_velocity,-1, 1), self.angle/max_angle , np.clip((self.x_velocity - self.desired_vel_x)/max_velocity,-1, 1)])
                  
                 # Pick an action according to actor network
                 tf_current_state = tf.expand_dims(tf.convert_to_tensor(self.current_state), 0)
@@ -296,7 +296,7 @@ if __name__=='__main__':
 
     checkpoint = 0 #checkpoint try
     ntry = 2
-    nntry = 1
+    nntry = 2
     target_actor = get_actor()
     target_actor.load_weights('/home/andreas/andreas/catkin_ws/src/stalker/scripts/checkpoints/st_co'+str(checkpoint)+'/try'+str(ntry)+'/ddpg_target_actor.h5')
 

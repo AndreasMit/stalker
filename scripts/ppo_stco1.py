@@ -1,132 +1,143 @@
 #!/usr/bin/env python3
 
-import rospy
-import tensorflow as tf
 import numpy as np
-import matplotlib
-matplotlib.use('agg')
-import matplotlib.pyplot as plt
+import tensorflow as tf
+from tensorflow import keras
+from tensorflow.keras import layers
+import scipy.signal
+import time
+import rospy
 from nav_msgs.msg import Odometry
 from geometry_msgs.msg import Point
 from geometry_msgs.msg import Quaternion
 from mavros_msgs.msg import AttitudeTarget
-import math
-import time
-from tensorflow.keras import layers
 from mavros_msgs.msg import PositionTarget
+import math
+
 from stalker.msg import PREDdata
 from BoxToLineClass import line_detector
 
-#-------------------------------- NOISE CLASS --------------------------------#
+def discounted_cumulative_sums(x, discount):
+    # Discounted cumulative sums of vectors for computing rewards-to-go and advantage estimates
+    return scipy.signal.lfilter([1], [1, float(-discount)], x[::-1], axis=0)[::-1]
 
-
-class OUActionNoise:
-    def __init__(self, mean, std_deviation, theta=0.15, dt=1e-1, x_initial=None):
-        self.theta = theta
-        self.mean = mean
-        self.std_dev = std_deviation
-        self.dt = dt
-        self.x_initial = x_initial
-        self.reset()
-
-    def __call__(self):
-        # Formula taken from https://www.wikipedia.org/wiki/Ornstein-Uhlenbeck_process.
-        x = (
-            self.x_prev
-            + self.theta * (self.mean - self.x_prev) * self.dt
-            + self.std_dev * np.sqrt(self.dt) * np.random.normal(size=self.mean.shape)
-        )
-        # Store x into x_prev
-        # Makes next noise dependent on current one
-        self.x_prev = x
-        return x
-
-    def reset(self):
-        if self.x_initial is not None:
-            self.x_prev = self.x_initial
-        else:
-            self.x_prev = np.zeros_like(self.mean)
-
-#-------------------------------- CLASS BUFFER --------------------------------#
 
 class Buffer:
-    def __init__(self, buffer_capacity = 100000, batch_size = 64):
+    # Buffer for storing trajectories
+    def __init__(self, observation_dimensions, size, gamma=0.99, lam=0.95):
+        # Buffer initialization
+        self.observation_buffer = np.zeros(
+            (size, observation_dimensions), dtype=np.float32
+        )
+        self.action_buffer = np.zeros(size, dtype=np.int32)
+        self.advantage_buffer = np.zeros(size, dtype=np.float32)
+        self.reward_buffer = np.zeros(size, dtype=np.float32)
+        self.return_buffer = np.zeros(size, dtype=np.float32)
+        self.value_buffer = np.zeros(size, dtype=np.float32)
+        self.logprobability_buffer = np.zeros(size, dtype=np.float32)
+        self.gamma, self.lam = gamma, lam
+        self.pointer, self.trajectory_start_index = 0, 0
 
-        #Number of experiences to store at max
-        self.buffer_capacity = buffer_capacity
-        
-        #Number of tuples to train on
-        self.batch_size = batch_size
+    def store(self, observation, action, reward, value, logprobability):
+        # Append one step of agent-environment interaction
+        self.observation_buffer[self.pointer] = observation
+        self.action_buffer[self.pointer] = action
+        self.reward_buffer[self.pointer] = reward
+        self.value_buffer[self.pointer] = value
+        self.logprobability_buffer[self.pointer] = logprobability
+        self.pointer += 1
 
-        #Number of times record() was called
-        self.buffer_counter = 0
+    def finish_trajectory(self, last_value=0):
+        # Finish the trajectory by computing advantage estimates and rewards-to-go
+        path_slice = slice(self.trajectory_start_index, self.pointer)
+        rewards = np.append(self.reward_buffer[path_slice], last_value)
+        values = np.append(self.value_buffer[path_slice], last_value)
 
-        #We use different np.arrays for each tuple element
-        self.state_buffer = np.zeros((self.buffer_capacity, num_states))
-        self.action_buffer = np.zeros((self.buffer_capacity, num_actions))
-        self.reward_buffer = np.zeros((self.buffer_capacity, 1))
-        self.next_state_buffer = np.zeros((self.buffer_capacity, num_states))
+        deltas = rewards[:-1] + self.gamma * values[1:] - values[:-1]
 
-    #Takes (s,a,r,s') observation tuple as input
-    def record(self, obs_tuple):  
+        self.advantage_buffer[path_slice] = discounted_cumulative_sums(
+            deltas, self.gamma * self.lam
+        )
+        self.return_buffer[path_slice] = discounted_cumulative_sums(
+            rewards, self.gamma
+        )[:-1]
 
-        #Set index to zeros if buffer_capacity is exceeded and replace old records
-        index = self.buffer_counter % self.buffer_capacity
+        self.trajectory_start_index = self.pointer
 
-        self.state_buffer[index] = obs_tuple[0]
-        self.action_buffer[index] = obs_tuple[1]
-        self.reward_buffer[index] = obs_tuple[2]
-        self.next_state_buffer[index] = obs_tuple[3]
+    def get(self):
+        # Get all data of the buffer and normalize the advantages
+        self.pointer, self.trajectory_start_index = 0, 0
+        advantage_mean, advantage_std = (
+            np.mean(self.advantage_buffer),
+            np.std(self.advantage_buffer),
+        )
+        self.advantage_buffer = (self.advantage_buffer - advantage_mean) / advantage_std
+        return (
+            self.observation_buffer,
+            self.action_buffer,
+            self.advantage_buffer,
+            self.return_buffer,
+            self.logprobability_buffer,
+        )
 
-        self.buffer_counter += 1  
 
-    def learn(self):
+def logprobabilities(logits, a):
+    # Compute the log-probabilities of taking actions a by using the logits (i.e. the output of the actor)
+    logprobabilities_all = tf.nn.log_softmax(logits)
+    logprobability = tf.reduce_sum(
+        tf.one_hot(a, num_actions) * logprobabilities_all, axis=1
+    )
+    return logprobability
 
-        # Get sampling range
-        record_range = min(self.buffer_counter, self.buffer_capacity)
 
-        # Randomly sample indices
-        batch_indices = np.random.choice(record_range, self.batch_size)
+# Sample action from actor
+@tf.function
+def sample_action(observation):
+    logits = actor(observation)
+    action = tf.squeeze(tf.random.categorical(logits, 1), axis=1)
+    return logits, action
 
-        # Convert to tensors
-        state_batch = tf.convert_to_tensor(self.state_buffer[batch_indices])
-        action_batch = tf.convert_to_tensor(self.action_buffer[batch_indices])
-        reward_batch = tf.convert_to_tensor(self.reward_buffer[batch_indices])
-        reward_batch = tf.cast(reward_batch, dtype=tf.float32)
-        next_state_batch = tf.convert_to_tensor(self.next_state_buffer[batch_indices])
 
-        self.update(state_batch, action_batch, reward_batch, next_state_batch)
+# Train the policy by maxizing the PPO-Clip objective
+@tf.function
+def train_policy(
+    observation_buffer, action_buffer, logprobability_buffer, advantage_buffer
+):
 
-    # Eager execution is turned on by default in TensorFlow 2. Decorating with tf.function allows
-    # TensorFlow to build a static graph out of the logic and computations in our function.
-    # This provides a large speed up for blocks of code that contain many small TensorFlow operations such as this one.
-    @tf.function
-    def update(self, state_batch, action_batch, reward_batch, next_state_batch):
-        # Training and updating Actor & Critic networks.
+    with tf.GradientTape() as tape:  # Record operations for automatic differentiation.
+        ratio = tf.exp(
+            logprobabilities(actor(observation_buffer), action_buffer)
+            - logprobability_buffer
+        )
+        min_advantage = tf.where(
+            advantage_buffer > 0,
+            (1 + clip_ratio) * advantage_buffer,
+            (1 - clip_ratio) * advantage_buffer,
+        )
 
-        with tf.GradientTape() as tape:
+        policy_loss = -tf.reduce_mean(
+            tf.minimum(ratio * advantage_buffer, min_advantage)
+        )
+    policy_grads = tape.gradient(policy_loss, actor.trainable_variables)
+    policy_optimizer.apply_gradients(zip(policy_grads, actor.trainable_variables))
 
-            target_actions = target_actor(next_state_batch, training=True)
-            #Compute the real expected return
-            y = reward_batch + gamma * target_critic([next_state_batch, target_actions], training=True) 
-            #Define the output of the critic according to the current batch
-            critic_value = critic_model([state_batch, action_batch], training=True)
-            #Define the Loss Function (real expected return - output of critic)**2
-            critic_loss = tf.math.reduce_mean(tf.math.square(y - critic_value))
+    kl = tf.reduce_mean(
+        logprobability_buffer
+        - logprobabilities(actor(observation_buffer), action_buffer)
+    )
+    kl = tf.reduce_sum(kl)
+    return kl
 
-        #Do gradient ascent to the critic model according to the loss
-        critic_grad = tape.gradient(critic_loss, critic_model.trainable_variables)
-        critic_optimizer.apply_gradients(zip(critic_grad, critic_model.trainable_variables))
 
-        with tf.GradientTape() as tape:
-            actions = actor_model(state_batch, training=True)
-            critic_value = critic_model([state_batch, actions], training=True)
-            # Used `-value` as we want to maximize the value given (we want gradient ascent, but by default gradient descent is used)
-            # by the critic for our actions
-            actor_loss = -tf.math.reduce_mean(critic_value)
+# Train the value function by regression on mean-squared error
+@tf.function
+def train_value_function(observation_buffer, return_buffer):
+    with tf.GradientTape() as tape:  # Record operations for automatic differentiation.
+        value_loss = tf.reduce_mean((return_buffer - critic(observation_buffer)) ** 2)
+    value_grads = tape.gradient(value_loss, critic.trainable_variables)
+    value_optimizer.apply_gradients(zip(value_grads, critic.trainable_variables))
 
-        actor_grad = tape.gradient(actor_loss, actor_model.trainable_variables)
-        actor_optimizer.apply_gradients(zip(actor_grad, actor_model.trainable_variables))  
+
 
 #-------------------------------- CLASS ENVIRONMENT --------------------------------#
 
@@ -141,7 +152,6 @@ class Environment:
         # Initialize yaw to zero
         self.initial_pose()
 
-        self.checkpoint  = 0 
         # Reset to initial positions
         self.x_initial = 0.0
         self.y_initial = 0.0
@@ -169,16 +179,20 @@ class Environment:
 
         # Initialize variables
         self.timestep = 1
-        self.current_episode = 1
+        self.current_episode = 0
         self.episodic_reward = 0.0
-        self.previous_state = np.zeros(num_states)
+        self.observation = np.zeros(observation_dimensions)
         self.action = np.zeros(num_actions)
         self.previous_action = np.zeros(num_actions)
         self.done = False
-        self.max_timesteps = 1024 # 512
+        self.max_timesteps = 1024
         self.ngraph = 0
+
+        self.sum_return = 0.0 
+        self.sum_timesteps = 0 #sum_length
+        self.steps_per_epoch = 4000
         
-        # Define Subscriber
+        # Define Subscriber !edit type
         self.sub_detector = rospy.Subscriber("/box", PREDdata, self.DetectCallback)
         self.sub_position = rospy.Subscriber("/mavros/local_position/odom", Odometry, self.PoseCallback)
         
@@ -258,55 +272,71 @@ class Environment:
         position_reset.yaw = self.yaw_initial
         self.pub_pos.publish(position_reset) 
 
+    def epoch_done(self):
+        # Get values from the buffer
+        (
+            observation_buffer,
+            action_buffer,
+            advantage_buffer,
+            return_buffer,
+            logprobability_buffer,
+        ) = self.buffer.get()
+
+        for _ in range(train_policy_iterations):
+            kl = train_policy(
+                observation_buffer, action_buffer, logprobability_buffer, advantage_buffer
+            )
+            if kl > 1.5 * target_kl:
+                # Early Stopping
+                break
+
+        # Update the value function
+        for _ in range(train_value_iterations):
+            train_value_function(observation_buffer, return_buffer)
+
+        # Print mean return and length for each epoch
+        print(
+            f" Epoch: {epoch + 1}. Mean Return: {self.sum_return / self.current_episode}. Mean Length: {self.sum_timesteps / self.current_episode}"
+        )
+        print('episodes of this epoch ', self.current_episode)
+        actor.save_weights("/home/andreas/andreas/catkin_ws/src/stalker/scripts/checkpoints/ppo/st_co"+str(checkpoint)+"/try"+str(ntry)+"/ppo_actor.h5")
+        critic.save_weights("/home/andreas/andreas/catkin_ws/src/stalker/scripts/checkpoints/ppo/st_co"+str(checkpoint)+"/try"+str(ntry)+"/ppo_critic.h5")
+        print("-----Weights saved-----")
+
+        plt.plot(self.sum_return / self.current_episode, 'b')
+        plt.ylabel('Score')
+        plt.xlabel('Steps')
+        plt.grid()
+        plt.savefig('/home/andreas/andreas/catkin_ws/src/stalker/scripts/checkpoints/ppo/st_co'+str(checkpoint)+'/try'+str(ntry)+'/ppo_score')
+        plt.figure()
+        plt.plot(distances, 'b')
+        plt.plot(angles, 'r')
+        plt.grid()
+        plt.savefig('/home/andreas/andreas/catkin_ws/src/stalker/scripts/checkpoints/ppo/st_co'+str(checkpoint)+'/try'+str(ntry)+'/distance_and_angle')
+        print("-----Plots saved-----")
+
+        self.sum_return = 0.0
+        self.current_episode = 0
+        self.sum_timesteps = 0
+
     def reset(self):
         # If done, the episode has terminated -> save the episode's reward
-
-        ep_reward_list.append(self.episodic_reward*self.max_timesteps/self.timestep)
-        # ep_reward_list.append(self.episodic_reward)
+        ep_reward_list.append(self.episodic_reward)
         # Mean episodic reward of last 40 episodes
         avg_reward = np.mean(ep_reward_list[-40:])
         episodes.append(self.current_episode)
-        print("timesteps :", self.timestep)
-        print("Episode * {} * Cur Reward is ==> {}".format(self.current_episode,self.episodic_reward*self.max_timesteps/self.timestep))
-        # print("Episode * {} * Cur Reward is ==> {}".format(self.current_episode,self.episodic_reward))
+        print("Episode * {} * Cur Reward is ==> {}".format(self.current_episode,self.episodic_reward))
         print("Episode * {} * Avg Reward is ==> {}".format(self.current_episode, avg_reward))
+        print("timesteps of this episode ", self.timestep)
         avg_reward_list.append(avg_reward)
-       
 
-        # Save the weights every 30 episodes to a file
-        if self.current_episode % 10 == 0.0:
-            actor_model.save_weights("/home/andreas/andreas/catkin_ws/src/stalker/scripts/checkpoints/st_co"+str(checkpoint)+"/try"+str(ntry)+"/ddpg_actor.h5")
-            critic_model.save_weights("/home/andreas/andreas/catkin_ws/src/stalker/scripts/checkpoints/st_co"+str(checkpoint)+"/try"+str(ntry)+"/ddpg_critic.h5")
-            target_actor.save_weights("/home/andreas/andreas/catkin_ws/src/stalker/scripts/checkpoints/st_co"+str(checkpoint)+"/try"+str(ntry)+"/ddpg_target_actor.h5")
-            target_critic.save_weights("/home/andreas/andreas/catkin_ws/src/stalker/scripts/checkpoints/st_co"+str(checkpoint)+"/try"+str(ntry)+"/ddpg_target_critic.h5")    
-            print("-----Weights saved-----")     
+        if (self.sum_timesteps > self.steps_per_epoch):
+            last_value = critic(self.observation)
+        else: #exceeded bounds
+            last_value = -1
 
-            plt.figure() 
-            plt.plot(ep_reward_list, 'b')
-            plt.plot(avg_reward_list, 'r')
-            plt.ylabel('Score')
-            plt.xlabel('Episodes')
-            plt.grid()
-            plt.savefig('/home/andreas/andreas/catkin_ws/src/stalker/scripts/checkpoints/st_co'+str(checkpoint)+'/try'+str(ntry)+'/ddpg_score'+str(self.ngraph))
-            print("-----Plots saved-----")
-            # plt.figure(1)
-            # plt.scatter(distances, angles, c=rewards)
-            # plt.grid()
-            # plt.savefig('/home/andreas/andreas/catkin_ws/src/stalker/scripts/checkpoints/st_co'+str(checkpoint)+'/reward_per_error'+str(ntry)+'')
-            plt.figure()
-            plt.plot(distances, 'b')
-            plt.plot(angles, 'r')
-            plt.grid()
-            plt.savefig('/home/andreas/andreas/catkin_ws/src/stalker/scripts/checkpoints/st_co'+str(checkpoint)+'/try'+str(ntry)+'/distance_and_angle'+str(self.ngraph))
-
-        if self.current_episode % 150 == 0.0:
-            self.ngraph += 1
-            #we do this so we reduce memory used and take less time to save the graphs (less delay in training)
-            ep_reward_list.clear()
-            avg_reward_list.clear()
-            distances.clear()
-            angles.clear()
-
+        buffer.finish_trajectory(last_value) 
+        self.sum_return += self.episodic_reward 
 
         # Reset episodic reward and timestep to zero
         self.episodic_reward = 0.0
@@ -315,6 +345,9 @@ class Environment:
         self.done = False
         self.exceeded_bounds = False  
         self.to_start  = False 
+
+        if (self.sum_timesteps> self.steps_per_epoch):
+            self.epoch_done()
 
     def PoseCallback(self,msg):
         self.position = msg
@@ -364,10 +397,9 @@ class Environment:
             if self.exceeded_bounds and not self.done : # Bounds around desired position
                 print("Exceeded Bounds --> Return to initial position")
                 self.done = True 
-            elif self.timestep > self.max_timesteps and not self.done:
+            elif self.sum_timesteps > self.steps_per_epoch and not self.done:
                 print("Reached max number of timesteps --> Return to initial position")   
                 self.done = True 
-                self.reward += 100
 
             if self.done:
                 if self.timestep < 10: #for some reason we have a false detection of good position
@@ -375,12 +407,6 @@ class Environment:
                     self.y_initial = 0.0
                     self.z_initial = 7.0
                     self.yaw_initial = 90.0
-
-                # self.go_to_start()
-                # if abs(self.x_position-self.x_initial)<0.2 and abs(self.y_position-self.y_initial)<0.2 and abs(self.z_position-self.z_initial)<0.2 :
-                #     self.reset()                 
-                #     print("Reset")                   
-                #     print("Begin Episode %d" %self.current_episode)
 
                 # instead go to last frame that had detection
                 if not self.to_start:
@@ -408,48 +434,38 @@ class Environment:
 
                 #STATE
                 #normalized values only -> [0,1]
-                # use clip instead of min(,1)
-                self.current_state = np.array([self.distance/max_distance, np.clip(self.y_velocity/max_velocity, -1, 1), self.angle/max_angle , np.clip((self.x_velocity - self.desired_vel_x)/max_velocity,-1 , 1)])
+                self.observation_new = np.array([self.distance/max_distance, np.clip(self.y_velocity/max_velocity, -1, 1), self.angle/max_angle , np.clip((self.x_velocity - self.desired_vel_x)/max_velocity,-1 , 1)])
 
                 # Compute reward from the 2nd timestep and after
                 if self.timestep > 1:
 
                     #REWARD
-                    # angle_error = max(abs(self.angle)-8,0)/max_angle
+
+                    #penalize big angle and distance from center
                     angle_error = abs(self.angle)/max_angle
-
-                    #if angle = 90?? about distance x
-
-                    # distance_error = max(abs(self.distance)-40,0)/max_distance
                     distance_error = abs(self.distance)/max_distance
-                    position_error = distance_error + angle_error 
-                    # position_error = np.sqrt(distance_error) +np.sqrt(angle_error)
-                    # position_error = distance_error**2 + angle_error**2
+                    position_error = distance_error + angle_error
                     weight_position = 100
-                    #max 200
+                    #max 100
                     # print(angle_error, abs(self.distance))
 
                     #penalize velocity error
                     velocity_error = min(abs(self.y_velocity)/max_velocity, 1) + min( abs(self.x_velocity - self.desired_vel_x)/max_velocity, 1)
                     weight_velocity = 60
-                    #max 50
+                    #max 40
 
                     # penalize big roll and pitch values
                     #could do it with sqrt
                     action = abs(self.action[0])/angle_max + abs(self.action[1])/angle_max 
                     weight_action = 10
-                    #max 2
-
-                    #penalize big yaw changes
-                    yaw_smooth = abs(self.action[2])/yaw_max
-                    weight_yaw = 10
-
-                    #penalize changes in yaw
-                    # yaw_smooth = abs(self.action[2]-self.previous_action[2])/yaw_max
-                    # weight_yaw = 30
                     #max 30
 
-                    #total max 310
+                    #penalize changes in yaw
+                    yaw_smooth = abs(self.action[2])/yaw_max
+                    weight_yaw = 10
+                    #max 30
+
+                    #total max 200
                     # print(weight_position*position_error, weight_velocity*velocity_error, weight_action*action, weight_yaw*yaw_smooth )
                     # print(self.action[0], self.action[1], self.action[2])
                     # print(self.yaw)
@@ -459,40 +475,30 @@ class Environment:
                     self.reward += -weight_action*action
                     self.reward += -weight_yaw*yaw_smooth
                     self.reward = self.reward/350 # -> reward is between [-1,0]
-                    # self.reward = min(self.reward+0.15, 0 )
                     # dont use the above if you are using 'shaping'
-                    # print(position_error, velocity_error, action, yaw_smooth)
-                    # print( distance_error *100, angle_error *100)
-                    # print( abs(self.x_velocity - self.desired_vel_x)/max_velocity *100)
-                    # print(int(weight_position*position_error) ,int(weight_velocity*velocity_error), int(weight_action*action), int(weight_yaw*yaw_smooth))
-                    # print(int(self.distance), int(self.angle), int(self.x_velocity), 'reward', int(self.reward*100))
-                    # print(int(distance_error*100), int(angle_error*100), int(velocity_error*100), int(action*100) ,'reward', int(self.reward*100))
-                    # Record s,a,r,s'
-                    buffer.record((self.previous_state, self.action, self.reward, self.current_state ))
-
+                   
+                    # print(self.reward)
                     self.episodic_reward += self.reward
-                    # Optimize the NN weights using gradient descent
-                    buffer.learn()
-                    # Update the target Networks
-                    update_target(target_actor.variables, actor_model.variables, tau)
-                    update_target(target_critic.variables, critic_model.variables, tau) 
+
+                    # Store obs, act, rew, v_t, logp_pi_t
+                    buffer.store(self.observation, self.action, self.reward, self.value_t, self.logprobability_t)
                     angles.append(self.angle/max_angle)
                     distances.append(self.distance/max_distance)
-                    # rewards.append(self.reward)
-                    # rolls.append(self.action[0]) 
 
-                    
-                self.previous_action = self.action                  
-
-                # Pick an action according to actor network
-                tf_current_state = tf.expand_dims(tf.convert_to_tensor(self.current_state), 0)
-                tf_action = tf.squeeze(actor_model(tf_current_state))
-                noise = ou_noise()
-                self.action = tf_action.numpy() + noise  # Add exploration strategy
-                # print(self.action)
+                tf_observation = tf.expand_dims(tf.convert_to_tensor(self.observation_new), 0)
+                tf_action = tf.squeeze(actor(tf_observation))
+                # print(tf.shape(tf_observation))
+                # self.logits, tf_action =  sample_action( tf_observation )
+                self.action = tf_action.numpy() 
+                print(self.action)
                 self.action[0] = np.clip(self.action[0], angle_min, angle_max)
                 self.action[1] = np.clip(self.action[1], angle_min, angle_max)
                 self.action[2] = np.clip(self.action[2], yaw_min, yaw_max)
+
+                self.value_t = critic(tf_observation)
+                # self.logprobability_t = logprobabilities(self.logits, self.action)
+                self.logprobability_t = 0
+                self.previous_action = self.action                  
 
                 # Roll, Pitch, Yaw in Degrees
                 roll_des = self.action[0]
@@ -507,21 +513,9 @@ class Environment:
                 action_mavros.orientation = self.rpy2quat(roll_des,pitch_des,yaw_des)
                 self.pub_action.publish(action_mavros)
 
-                
-                
-
-                self.previous_state = self.current_state
-                self.timestep += 1        
-
-#-------------------------------- MAIN --------------------------------#
-
-
-# This update target parameters slowly
-# Based on rate `tau`, which is much less than one.
-@tf.function
-def update_target(target_weights, weights, tau):
-    for (a, b) in zip(target_weights, weights):
-        a.assign(b * tau + a * (1 - tau)) 
+                self.observation = self.observation_new
+                self.timestep += 1 
+                self.sum_timesteps += 1     
 
 
 def get_actor():
@@ -529,7 +523,7 @@ def get_actor():
     # Initialize weights between -3e-3 and 3-e3
     last_init = tf.random_uniform_initializer(minval=-0.003, maxval=0.003)
 
-    inputs = layers.Input(shape=(num_states,))
+    inputs = layers.Input(shape=(observation_dimensions,))
     h1 = layers.Dense(256, activation="tanh")(inputs)
     h2 = layers.Dense(256, activation="tanh")(h1)    
     outputs = layers.Dense(num_actions, activation="tanh", kernel_initializer=last_init)(h2)
@@ -545,7 +539,7 @@ def get_critic():
 
     # The critic NN has 2 inputs: the states and the actions. Use 2 seperate NN and then concatenate them
     # State as input
-    state_input = layers.Input(shape=(num_states))
+    state_input = layers.Input(shape=(observation_dimensions))
     h1_state = layers.Dense(16, activation="relu")(state_input)
     state_out = layers.Dense(32, activation="relu")(h1_state)
 
@@ -567,86 +561,63 @@ def get_critic():
 
 if __name__=='__main__':
     rospy.init_node('rl_node', anonymous=True)
-    
-    # With eager execution, operations are executed as they are 
-    # defined and Tensor objects hold concrete values, which 
-    # can be accessed as numpy.ndarray`s through the numpy() method.
     tf.compat.v1.enable_eager_execution()
 
-    num_actions = 3 
-    num_states = 4  
+    # Hyperparameters of the PPO algorithm
+    steps_per_epoch = 4000
+    clip_ratio = 0.2
+    policy_learning_rate = 3e-4
+    value_function_learning_rate = 1e-3
+    train_policy_iterations = 80
+    train_value_iterations = 80
+    lam = 0.97
+    gamma = 0.99
+    target_kl = 0.01
+
+    observation_dimensions = 4
+    num_actions = 3
 
     angle_max = 3.0 
     angle_min = -3.0 # constraints for commanded roll and pitch
     yaw_max = 5.0 #how much yaw should change every time
     yaw_min = -5.0
 
-    max_vel_up = 1.5 # Real one is 2.5
-    max_vel_down = -1.5 # constraints for commanded vertical velocity
-
-
+    # Initialize the buffer
+    buffer = Buffer(observation_dimensions, steps_per_epoch)
+    
     checkpoint = 0 #checkpoint try
-    ntry = 3
+    ntry = 0
 
-    actor_model = get_actor()
+    actor = get_actor()
     print("Actor Model Summary")
-    print(actor_model.summary())
+    print(actor.summary())
 
-    critic_model = get_critic()
+    critic = get_critic()
     print("Critic Model Summary")
-    print(critic_model.summary())
+    print(critic.summary())
 
-    target_actor = get_actor()
-    target_critic = get_critic()
+    actor.load_weights('/home/andreas/andreas/catkin_ws/src/stalker/scripts/checkpoints/ppo/st_co'+str(checkpoint)+'/try'+str(ntry)+'/ppo_actor.h5')
+    critic.load_weights('/home/andreas/andreas/catkin_ws/src/stalker/scripts/checkpoints/ppo/st_co'+str(checkpoint)+'/try'+str(ntry)+'/ppo_critic.h5')
 
-    # Making the weights equal initially
-    target_actor.set_weights(actor_model.get_weights())
-    target_critic.set_weights(critic_model.get_weights())
-
-    # Load pretrained weights
-    # actor_model.load_weights('/home/andreas/andreas/catkin_ws/src/stalker/scripts/checkpoints/st_co'+str(checkpoint)+'/try'+str(ntry)+'/ddpg_actor.h5')
-    # critic_model.load_weights('/home/andreas/andreas/catkin_ws/src/stalker/scripts/checkpoints/st_co'+str(checkpoint)+'/try'+str(ntry)+'/ddpg_critic.h5')
-
-    # target_actor.load_weights('/home/andreas/andreas/catkin_ws/src/stalker/scripts/checkpoints/st_co'+str(checkpoint)+'/try'+str(ntry)+'/ddpg_target_actor.h5')
-    # target_critic.load_weights('/home/andreas/andreas/catkin_ws/src/stalker/scripts/checkpoints/st_co'+str(checkpoint)+'/try'+str(ntry)+'/ddpg_target_critic.h5')
-
-    # Learning rate for actor-critic models
-    critic_lr = 0.001
-    actor_lr = 0.0001
-
-    # Define optimizer
-    critic_optimizer = tf.keras.optimizers.Adam(critic_lr)
-    actor_optimizer = tf.keras.optimizers.Adam(actor_lr)
-
-    # Discount factor for future rewards
-    gamma = 0.99
-    # Used to update target networks
-    tau = 0.001   
+    critic_optimizer = tf.keras.optimizers.Adam(value_function_learning_rate)
+    actor_optimizer = tf.keras.optimizers.Adam(policy_learning_rate)
 
     # To store reward history of each episode
     ep_reward_list = []
     # To store average reward history of last few episodes
     avg_reward_list = [] 
     episodes = []
-
     distances = []
     angles = []
     rewards = []
-    rolls = []
 
     Environment()
-
-    # buffer = Buffer(100000, 1000)
-    buffer = Buffer(100000, 64)
-
-    std_dev = 0.1
-    # std_dev = 0.2
-
-    ou_noise = OUActionNoise(mean=np.zeros(num_actions), std_deviation=float(std_dev) * np.ones(num_actions))
-
     r = rospy.Rate(20)
     while not rospy.is_shutdown:
         r.sleep()    
 
-    rospy.spin()        
+    rospy.spin()    
+
+
+
 
