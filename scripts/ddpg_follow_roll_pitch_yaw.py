@@ -410,7 +410,7 @@ class Environment:
                 # print(self.angle)
                 # print(min(self.ddist_y/max_derivative, 1))
                 #normalized values only -> [0,1]
-                self.current_state = np.array([self.distance_x/max_distance_x, self.distance_y/max_distance_y, np.clip(self.ddist_x/max_derivative, -1, 1), np.clip(self.ddist_y/max_derivative, 1)])
+                self.current_state = np.array([self.distance_x/max_distance_x, self.distance_y/max_distance_y, np.clip(self.ddist_x/max_derivative, -1, 1), np.clip(self.ddist_y/max_derivative, -1, 1)])
 
 
                 # Compute reward from the 2nd timestep and after
@@ -468,7 +468,7 @@ class Environment:
                 pitch_des = self.action[1] 
                 yaw_des = self.action[2] + self.yaw  #differences in yaw
                 # print(yaw_des)
-                print(self.action)
+                # print(self.action)
                 # Convert to mavros message and publish desired attitude
                 action_mavros = AttitudeTarget()
                 action_mavros.type_mask = 7

@@ -7,12 +7,16 @@ from tensorflow.keras import layers
 import scipy.signal
 import time
 import rospy
+import matplotlib
+matplotlib.use('agg')
+import matplotlib.pyplot as plt
 from nav_msgs.msg import Odometry
 from geometry_msgs.msg import Point
 from geometry_msgs.msg import Quaternion
 from mavros_msgs.msg import AttitudeTarget
 from mavros_msgs.msg import PositionTarget
 import math
+from tensorflow.keras import backend as K
 
 from stalker.msg import PREDdata
 from BoxToLineClass import line_detector
@@ -26,10 +30,8 @@ class Buffer:
     # Buffer for storing trajectories
     def __init__(self, observation_dimensions, size, gamma=0.99, lam=0.95):
         # Buffer initialization
-        self.observation_buffer = np.zeros(
-            (size, observation_dimensions), dtype=np.float32
-        )
-        self.action_buffer = np.zeros(size, dtype=np.int32)
+        self.observation_buffer = np.zeros((size, observation_dimensions), dtype=np.float32)
+        self.action_buffer = np.zeros((size, num_actions), dtype=np.float32)
         self.advantage_buffer = np.zeros(size, dtype=np.float32)
         self.reward_buffer = np.zeros(size, dtype=np.float32)
         self.return_buffer = np.zeros(size, dtype=np.float32)
@@ -77,54 +79,33 @@ class Buffer:
             self.action_buffer,
             self.advantage_buffer,
             self.return_buffer,
-            self.logprobability_buffer,
+            self.logprobability_buffer
         )
-
-
-def logprobabilities(logits, a):
-    # Compute the log-probabilities of taking actions a by using the logits (i.e. the output of the actor)
-    logprobabilities_all = tf.nn.log_softmax(logits)
-    logprobability = tf.reduce_sum(
-        tf.one_hot(a, num_actions) * logprobabilities_all, axis=1
-    )
-    return logprobability
-
-
-# Sample action from actor
-@tf.function
-def sample_action(observation):
-    logits = actor(observation)
-    action = tf.squeeze(tf.random.categorical(logits, 1), axis=1)
-    return logits, action
 
 
 # Train the policy by maxizing the PPO-Clip objective
 @tf.function
-def train_policy(
-    observation_buffer, action_buffer, logprobability_buffer, advantage_buffer
-):
+def train_policy( observation_buffer, action_buffer, logprobability_buffer ,advantage_buffer ):
+
 
     with tf.GradientTape() as tape:  # Record operations for automatic differentiation.
-        ratio = tf.exp(
-            logprobabilities(actor(observation_buffer), action_buffer)
-            - logprobability_buffer
-        )
+        
+        # ratio = np.sum(actor(observation_buffer), axis=1) / np.sum(action_buffer, axis=1)
+        ratio = tf.exp( gaussian_likelihood_tensor(action_buffer, actor(observation_buffer), log_std) - logprobability_buffer) # policy new / policy old
+
         min_advantage = tf.where(
             advantage_buffer > 0,
             (1 + clip_ratio) * advantage_buffer,
             (1 - clip_ratio) * advantage_buffer,
         )
 
-        policy_loss = -tf.reduce_mean(
-            tf.minimum(ratio * advantage_buffer, min_advantage)
-        )
-    policy_grads = tape.gradient(policy_loss, actor.trainable_variables)
-    policy_optimizer.apply_gradients(zip(policy_grads, actor.trainable_variables))
+        policy_loss = -tf.reduce_mean(tf.minimum(ratio * advantage_buffer, min_advantage))
 
-    kl = tf.reduce_mean(
-        logprobability_buffer
-        - logprobabilities(actor(observation_buffer), action_buffer)
-    )
+    policy_grads = tape.gradient(policy_loss, actor.trainable_variables)
+    actor_optimizer.apply_gradients(zip(policy_grads, actor.trainable_variables))
+
+    kl = tf.reduce_mean( logprobability_buffer - gaussian_likelihood_tensor(action_buffer, actor(observation_buffer), log_std) )
+    # kl = tf.reduce_mean( action_buffer - actor(observation_buffer))
     kl = tf.reduce_sum(kl)
     return kl
 
@@ -135,9 +116,16 @@ def train_value_function(observation_buffer, return_buffer):
     with tf.GradientTape() as tape:  # Record operations for automatic differentiation.
         value_loss = tf.reduce_mean((return_buffer - critic(observation_buffer)) ** 2)
     value_grads = tape.gradient(value_loss, critic.trainable_variables)
-    value_optimizer.apply_gradients(zip(value_grads, critic.trainable_variables))
+    critic_optimizer.apply_gradients(zip(value_grads, critic.trainable_variables))
 
+def gaussian_likelihood_tensor(actions, preds, log_std):
+    pre_sum = -0.5*(((actions-preds)/(K.exp(log_std)+1e-8))**2 +2*log_std + K.log(2*np.pi))
+    return K.sum(pre_sum, axis = 1)
 
+def gaussian_likelihood(action, pred, log_std):
+    pre_sum = -0.5*(((action - pred)/(np.exp(log_std) + 1e-8))**2 + 2*log_std + np.log(2*np.pi))
+    pre_sum = np.sum(pre_sum)
+    return pre_sum
 
 #-------------------------------- CLASS ENVIRONMENT --------------------------------#
 
@@ -186,11 +174,12 @@ class Environment:
         self.previous_action = np.zeros(num_actions)
         self.done = False
         self.max_timesteps = 1024
+        self.std = np.exp(log_std) 
         self.ngraph = 0
 
+        self.epoch = 0
         self.sum_return = 0.0 
         self.sum_timesteps = 0 #sum_length
-        self.steps_per_epoch = 4000
         
         # Define Subscriber !edit type
         self.sub_detector = rospy.Subscriber("/box", PREDdata, self.DetectCallback)
@@ -279,13 +268,11 @@ class Environment:
             action_buffer,
             advantage_buffer,
             return_buffer,
-            logprobability_buffer,
-        ) = self.buffer.get()
+            logprobability_buffer
+        ) = buffer.get()
 
         for _ in range(train_policy_iterations):
-            kl = train_policy(
-                observation_buffer, action_buffer, logprobability_buffer, advantage_buffer
-            )
+            kl = train_policy( observation_buffer, action_buffer,logprobability_buffer, advantage_buffer)
             if kl > 1.5 * target_kl:
                 # Early Stopping
                 break
@@ -296,7 +283,7 @@ class Environment:
 
         # Print mean return and length for each epoch
         print(
-            f" Epoch: {epoch + 1}. Mean Return: {self.sum_return / self.current_episode}. Mean Length: {self.sum_timesteps / self.current_episode}"
+            f" Epoch: {self.epoch + 1}. Mean Return: {self.sum_return / self.current_episode}. Mean Length: {self.sum_timesteps / self.current_episode}"
         )
         print('episodes of this epoch ', self.current_episode)
         actor.save_weights("/home/andreas/andreas/catkin_ws/src/stalker/scripts/checkpoints/ppo/st_co"+str(checkpoint)+"/try"+str(ntry)+"/ppo_actor.h5")
@@ -318,20 +305,22 @@ class Environment:
         self.sum_return = 0.0
         self.current_episode = 0
         self.sum_timesteps = 0
+        self.epoch += 1
 
     def reset(self):
         # If done, the episode has terminated -> save the episode's reward
         ep_reward_list.append(self.episodic_reward)
         # Mean episodic reward of last 40 episodes
         avg_reward = np.mean(ep_reward_list[-40:])
-        episodes.append(self.current_episode)
-        print("Episode * {} * Cur Reward is ==> {}".format(self.current_episode,self.episodic_reward))
-        print("Episode * {} * Avg Reward is ==> {}".format(self.current_episode, avg_reward))
-        print("timesteps of this episode ", self.timestep)
+        # episodes.append(self.current_episode)
+        # print("Episode * {} * Cur Reward is ==> {}".format(self.current_episode,self.episodic_reward))
+        # print("Episode * {} * Avg Reward is ==> {}".format(self.current_episode, avg_reward))
+        # print("timesteps of this episode ", self.timestep)
         avg_reward_list.append(avg_reward)
 
-        if (self.sum_timesteps > self.steps_per_epoch):
-            last_value = critic(self.observation)
+        if (self.sum_timesteps > steps_per_epoch):
+            tf_observation = tf.expand_dims(tf.convert_to_tensor(self.observation), 0)
+            last_value = critic(tf_observation)
         else: #exceeded bounds
             last_value = -1
 
@@ -346,7 +335,7 @@ class Environment:
         self.exceeded_bounds = False  
         self.to_start  = False 
 
-        if (self.sum_timesteps> self.steps_per_epoch):
+        if (self.sum_timesteps> steps_per_epoch):
             self.epoch_done()
 
     def PoseCallback(self,msg):
@@ -395,10 +384,10 @@ class Environment:
 
             # Check done signal which indicates whether s' is terminal. The episode is terminated when the quadrotor is out of bounds or after a max # of timesteps
             if self.exceeded_bounds and not self.done : # Bounds around desired position
-                print("Exceeded Bounds --> Return to initial position")
+                # print("Exceeded Bounds --> Return to initial position")
                 self.done = True 
-            elif self.sum_timesteps > self.steps_per_epoch and not self.done:
-                print("Reached max number of timesteps --> Return to initial position")   
+            elif self.sum_timesteps > steps_per_epoch and not self.done:
+                # print("Reached max number of timesteps --> Return to initial position")   
                 self.done = True 
 
             if self.done:
@@ -422,8 +411,8 @@ class Environment:
                     self.pub_action.publish(action_mavros)
                     if abs(self.yaw - self.yaw_initial)<10 :
                         self.reset()                 
-                        print("Reset")                   
-                        print("Begin Episode %d" %self.current_episode)  
+                        # print("Reset")                   
+                        # print("Begin Episode %d" %self.current_episode)  
                 else:
                     self.to_start = False               
             else:           
@@ -481,25 +470,25 @@ class Environment:
                     self.episodic_reward += self.reward
 
                     # Store obs, act, rew, v_t, logp_pi_t
-                    buffer.store(self.observation, self.action, self.reward, self.value_t, self.logprobability_t)
+                    buffer.store(self.observation, self.action, self.reward, self.value_t, self.logp_t)
                     angles.append(self.angle/max_angle)
                     distances.append(self.distance/max_distance)
 
                 tf_observation = tf.expand_dims(tf.convert_to_tensor(self.observation_new), 0)
                 tf_action = tf.squeeze(actor(tf_observation))
-                # print(tf.shape(tf_observation))
-                # self.logits, tf_action =  sample_action( tf_observation )
-                self.action = tf_action.numpy() 
-                print(self.action)
+
+                gaussian = np.random.uniform([angle_min, angle_min, yaw_min], [angle_max, angle_max, yaw_max] , size = num_actions)*self.std
+                self.action = tf_action.numpy() + gaussian #because it is a stochastic policy with mean values of the actor nn
+                # print(self.action)
                 self.action[0] = np.clip(self.action[0], angle_min, angle_max)
                 self.action[1] = np.clip(self.action[1], angle_min, angle_max)
                 self.action[2] = np.clip(self.action[2], yaw_min, yaw_max)
 
+                self.logp_t = gaussian_likelihood(self.action, tf_action.numpy(), log_std)
                 self.value_t = critic(tf_observation)
-                # self.logprobability_t = logprobabilities(self.logits, self.action)
-                self.logprobability_t = 0
                 self.previous_action = self.action                  
 
+                # print(self.logp_t)    
                 # Roll, Pitch, Yaw in Degrees
                 roll_des = self.action[0]
                 pitch_des = self.action[1] 
@@ -539,23 +528,14 @@ def get_critic():
 
     # The critic NN has 2 inputs: the states and the actions. Use 2 seperate NN and then concatenate them
     # State as input
-    state_input = layers.Input(shape=(observation_dimensions))
-    h1_state = layers.Dense(16, activation="relu")(state_input)
-    state_out = layers.Dense(32, activation="relu")(h1_state)
-
-    # Action as input
-    action_input = layers.Input(shape=(num_actions))
-    action_out = layers.Dense(32, activation="relu")(action_input)
-
-    # Both are passed through seperate layer before concatenating
-    concat = layers.Concatenate()([state_out, action_out])
-
-    out = layers.Dense(256, activation="relu")(concat)
-    out = layers.Dense(256, activation="relu")(out)
+    last_init = tf.random_uniform_initializer(minval=-0.003, maxval=0.003)
+    state_input = layers.Input(shape=(observation_dimensions,))
+    out = layers.Dense(256, activation="tanh", kernel_initializer=last_init)(state_input)
+    out = layers.Dense(256, activation="tanh", kernel_initializer=last_init)(out)
     outputs = layers.Dense(1)(out)
 
     # Outputs single value for give state-action
-    model = tf.keras.Model([state_input, action_input], outputs)
+    model = tf.keras.Model(state_input, outputs)
 
     return model 
 
@@ -573,10 +553,13 @@ if __name__=='__main__':
     lam = 0.97
     gamma = 0.99
     target_kl = 0.01
+    
 
     observation_dimensions = 4
     num_actions = 3
+    log_std = -0.5 * np.ones(num_actions, dtype=np.float32)*4
 
+    
     angle_max = 3.0 
     angle_min = -3.0 # constraints for commanded roll and pitch
     yaw_max = 5.0 #how much yaw should change every time

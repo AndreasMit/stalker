@@ -77,7 +77,7 @@ class Buffer:
             self.action_buffer,
             self.advantage_buffer,
             self.return_buffer,
-            self.logprobability_buffer,
+            self.logprobability_buffer
         )
 
 

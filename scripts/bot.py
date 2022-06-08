@@ -19,7 +19,7 @@ class controller:
         self.sub_detector = rospy.Subscriber("/box", PREDdata, self.box_callback)
         self.outofbounds = False
         self.prev = False
-        self.linearVel = 2
+        self.linearVel = 1 #m/s
         self.angularVel = random.sample([0.4, 0.9, 1.4, 1.9], 1)[0]
         # Set sig handler for proper termination #
         signal.signal(signal.SIGINT, self.sigHandler)

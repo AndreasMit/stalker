@@ -172,7 +172,7 @@ class Environment:
         self.previous_action = np.zeros(num_actions)
         self.done = False
         self.max_timesteps = 1024
-        self.ngraph = 0
+        self.ngraph = 5
         
         # Define Subscriber
         self.sub_detector = rospy.Subscriber("/box", PREDdata, self.DetectCallback)
@@ -181,7 +181,6 @@ class Environment:
         
         # Define line taken from detector
         self.box = PREDdata()
-        self.desired_pos_z = 4.0
         self.new_pose = False
 
         self.detector = center_detector()
@@ -409,6 +408,7 @@ class Environment:
                 
                 # print(self.angle)
                 # print(np.clip(self.ddist_x/max_derivative, -1, 1), np.clip(self.ddist_y/max_derivative, -1, 1))
+                # print(self.ddist_y, self.ddist_x)
 
                 #normalized values only -> [-1,1]
                 self.current_state = np.array([self.distance_x/max_distance_x, self.distance_y/max_distance_y, np.clip(self.ddist_x/max_derivative, -1, 1), np.clip(self.ddist_y/max_derivative, -1, 1)])
@@ -548,14 +548,14 @@ if __name__=='__main__':
     num_actions = 2 
     num_states = 4  
 
-    angle_max = 8.0 
-    angle_min = -8.0 # constraints for commanded roll and pitch
+    angle_max = 5.0 
+    angle_min = -5.0 # constraints for commanded roll and pitch
     yaw_max = 5.0 #how much yaw should change every time
     yaw_min = -5.0
 
 
     checkpoint = 2 #checkpoint try
-    ntry = 0
+    ntry = 5
 
     actor_model = get_actor()
     print("Actor Model Summary")
