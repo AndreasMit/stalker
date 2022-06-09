@@ -25,11 +25,9 @@ class Environment:
     def __init__(self):
         
         # Publishers
-        self.pub_pos = rospy.Publisher("/mavros/setpoint_raw/local",PositionTarget,queue_size=10000)
+        # self.pub_pos  = rospy.Publisher("/mavros/setpoint_raw/local",PositionTarget,queue_size=10000)
         self.pub_action = rospy.Publisher("/mavros/setpoint_raw/attitude", AttitudeTarget, queue_size=10000)
         
-        # Initialize yaw to zero
-        self.initial_pose()
 
         # Reset to initial positions
         self.x_initial = 0.0
@@ -51,8 +49,6 @@ class Environment:
         self.yaw = 90.0
 
         # define good limits
-        self.good_angle = 10
-        self.good_distance = 50 
         self.exceeded_bounds = False
         self.to_start = False
         self.done = False
@@ -76,12 +72,6 @@ class Environment:
         self.timestep = 0
 
 
-    def initial_pose(self):
-        action_mavros = AttitudeTarget()
-        action_mavros.type_mask = 7
-        action_mavros.thrust = 0.5 # Altitude hold
-        action_mavros.orientation = self.rpy2quat(0.0,0.0,90.0) # 90 yaw
-        self.pub_action.publish(action_mavros)
 
 
     # Convert roll, pitch, yaw (in degrees) to quaternion
@@ -129,23 +119,6 @@ class Environment:
 
         return roll, pitch, yaw      
 
-    def go_to_start(self):
-        #go to the last point when you had a good detection
-        #that point is stored in x/y/z initial
-        # print('going to start')
-        position_reset = PositionTarget()
-        position_reset.type_mask = 2496
-        position_reset.coordinate_frame = 1
-        position_reset.position.x = self.x_initial
-        position_reset.position.y = self.y_initial
-        position_reset.position.z = self.z_initial
-        position_reset.yaw = self.yaw_initial
-        self.pub_pos.publish(position_reset) 
-
-    def reset(self):
-        self.exceeded_bounds = False  
-        self.to_start  = False 
-        self.done = False
 
     def PoseCallback(self,msg):
         self.position = msg
@@ -183,41 +156,9 @@ class Environment:
             elif abs(self.angle) > 89.5: # this includes being vertical to the pavement but also cases when the detection is on the edge of image and is not reliable
                 self.exceeded_bounds = True 
 
-            elif abs(self.distance) < self.good_distance and abs(self.angle) < self.good_angle and self.angle!=0:
-                # print('good position')
-                # print(self.distance, self.angle)
-                self.x_initial = self.x_position
-                self.y_initial = self.y_position
-                # self.z_initial = self.z_position #keep it to 5 meters
-                self.yaw_initial = self.yaw
 
             if self.exceeded_bounds and not self.done:
-                print("Exceeded Bounds --> Return to initial position")
-                self.done = True
-
-            if self.exceeded_bounds:
-                self.go_to_start()
-                if abs(self.x_position-self.x_initial)<0.2 and abs(self.y_position-self.y_initial)<0.2 and abs(self.z_position-self.z_initial)<0.2 :
-                    self.reset()                 
-                    print("Reset")                   
-                    print("Begin Episode %d" %self.current_episode)
-                # # instead go to last frame that had detection
-                # if not self.to_start:
-                #     self.go_to_start()
-                # # When reach the inital position, begin next episode    
-                # if abs(self.x_position-self.x_initial)<0.2 and abs(self.y_position-self.y_initial)<0.2 and abs(self.z_position-self.z_initial)<0.2 :
-                #     self.to_start = True
-                #     # print('setting yaw')
-                #     action_mavros = AttitudeTarget()
-                #     action_mavros.type_mask = 7
-                #     action_mavros.thrust = 0.5 # Altitude hold
-                #     action_mavros.orientation = self.rpy2quat(0.0,0.0,self.yaw_initial) 
-                #     self.pub_action.publish(action_mavros)
-                #     if abs(self.yaw - self.yaw_initial)<10 :
-                #         self.reset()                 
-                #         print("Reset")                   
-                # else:
-                #     self.to_start = False               
+                print("Exceeded Bounds ")             
             else:           
                 # Compute the current state
                 max_distance = 360 #pixels
@@ -244,8 +185,8 @@ class Environment:
                     plt.plot(distances, 'b')
                     plt.plot(angles, 'r')
                     plt.grid()
-                    plt.savefig('/home/andreas/andreas/catkin_ws/src/stalker/scripts/checkpoints/st_co'+str(checkpoint)+'/try'+str(ntry)+'/infer_distance_error'+str(nntry))
-                    print('height: ', self.z_position,', velocity: ' ,self.x_velocity)
+                    plt.savefig('src/stalker/scripts/checkpoints/st_co'+str(checkpoint)+'/try'+str(ntry)+'/infer_distance_error'+str(nntry))
+                    # print('height: ', self.z_position,', velocity: ' ,self.x_velocity)
 
                 self.timestep += 1
                 
@@ -296,9 +237,9 @@ if __name__=='__main__':
 
     checkpoint = 0 #checkpoint try
     ntry = 2
-    nntry = 2
+    nntry = 3
     target_actor = get_actor()
-    target_actor.load_weights('/home/andreas/andreas/catkin_ws/src/stalker/scripts/checkpoints/st_co'+str(checkpoint)+'/try'+str(ntry)+'/ddpg_target_actor.h5')
+    target_actor.load_weights('src/stalker/scripts/checkpoints/st_co'+str(checkpoint)+'/try'+str(ntry)+'/ddpg_target_actor.h5')
 
     distances = []
     angles = []
