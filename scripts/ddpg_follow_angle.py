@@ -393,7 +393,7 @@ class Environment:
                 max_distance_y = 360
                 max_velocity = 2 #m/s
                 max_angle = 90 #degrees #bad name of variable ,be careful there is angle_max too for pitch and roll.
-                max_derivative = 60
+                max_derivative = 100
 
                 #STATE
                 #dt is around 0.1 as the mavros topic runs at 10Hz
@@ -410,8 +410,7 @@ class Environment:
                 # print(self.angle)
                 # print(min(self.ddist_y/max_derivative, 1))
                 #normalized values only -> [0,1]
-                self.current_state = np.array([self.distance_x/max_distance_x, self.distance_y/max_distance_y, self.angle/max_angle])
-                 # min(self.ddist_x/max_derivative, 1), min(self.ddist_y/max_derivative, 1)])
+                self.current_state = np.array([self.distance_x/max_distance_x, self.distance_y/max_distance_y, self.angle/max_angle, np.clip(self.ddist_x/max_derivative,-1, 1), np.clip(self.ddist_y/max_derivative,-1, 1)])
 
 
                 # Compute reward from the 2nd timestep and after
@@ -425,8 +424,8 @@ class Environment:
                     #max 200
 
                     #penalize derivative error
-                    # velocity_error = min(abs(self.ddist_x/max_derivative),1) + min(abs(self.ddist_y/max_derivative),1)
-                    # weight_velocity = 30
+                    velocity_error = min(abs(self.ddist_x/max_derivative),1) + min(abs(self.ddist_y/max_derivative),1)
+                    weight_velocity = 60
 
                     # penalize big roll and pitch values
                     #could do it with sqrt
@@ -435,9 +434,9 @@ class Environment:
 
                     #use minus because we want to maximize reward
                     self.reward  = -weight_position*position_error 
-                    # self.reward += -weight_velocity*velocity_error
+                    self.reward += -weight_velocity*velocity_error
                     self.reward += -weight_action*action
-                    self.reward = self.reward/330 # -> reward is between [-1,0]
+                    self.reward = self.reward/450 # -> reward is between [-1,0]
                     
                     # Record s,a,r,s'
                     buffer.record((self.previous_state, self.action, self.reward, self.current_state ))
@@ -448,6 +447,7 @@ class Environment:
                     # Update the target Networks
                     update_target(target_actor.variables, actor_model.variables, tau)
                     update_target(target_critic.variables, critic_model.variables, tau) 
+
                     distances_x.append(self.distance_x/max_distance_x)
                     distances_y.append(self.distance_y/max_distance_y)
                     angles.append(self.angle/max_angle) 
@@ -542,7 +542,7 @@ if __name__=='__main__':
     tf.compat.v1.enable_eager_execution()
 
     num_actions = 3 
-    num_states = 3  
+    num_states = 5 
 
     angle_max = 3.0 
     angle_min = -3.0 # constraints for commanded roll and pitch
@@ -569,11 +569,11 @@ if __name__=='__main__':
     target_critic.set_weights(critic_model.get_weights())
 
     # Load pretrained weights
-    actor_model.load_weights('/home/andreas/andreas/catkin_ws/src/stalker/scripts/checkpoints/follow'+str(checkpoint)+'/try'+str(ntry)+'/ddpg_actor.h5')
-    critic_model.load_weights('/home/andreas/andreas/catkin_ws/src/stalker/scripts/checkpoints/follow'+str(checkpoint)+'/try'+str(ntry)+'/ddpg_critic.h5')
+    # actor_model.load_weights('/home/andreas/andreas/catkin_ws/src/stalker/scripts/checkpoints/follow'+str(checkpoint)+'/try'+str(ntry)+'/ddpg_actor.h5')
+    # critic_model.load_weights('/home/andreas/andreas/catkin_ws/src/stalker/scripts/checkpoints/follow'+str(checkpoint)+'/try'+str(ntry)+'/ddpg_critic.h5')
 
-    target_actor.load_weights('/home/andreas/andreas/catkin_ws/src/stalker/scripts/checkpoints/follow'+str(checkpoint)+'/try'+str(ntry)+'/ddpg_target_actor.h5')
-    target_critic.load_weights('/home/andreas/andreas/catkin_ws/src/stalker/scripts/checkpoints/follow'+str(checkpoint)+'/try'+str(ntry)+'/ddpg_target_critic.h5')
+    # target_actor.load_weights('/home/andreas/andreas/catkin_ws/src/stalker/scripts/checkpoints/follow'+str(checkpoint)+'/try'+str(ntry)+'/ddpg_target_actor.h5')
+    # target_critic.load_weights('/home/andreas/andreas/catkin_ws/src/stalker/scripts/checkpoints/follow'+str(checkpoint)+'/try'+str(ntry)+'/ddpg_target_critic.h5')
 
     # Learning rate for actor-critic models
     critic_lr = 0.001
