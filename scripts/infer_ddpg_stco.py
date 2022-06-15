@@ -236,10 +236,10 @@ if __name__=='__main__':
     yaw_min = -5.0
 
     checkpoint = 0 #checkpoint try
-    ntry = 2
-    nntry = 3
+    ntry = 4
+    nntry = '2a'
     target_actor = get_actor()
-    target_actor.load_weights('src/stalker/scripts/checkpoints/st_co'+str(checkpoint)+'/try'+str(ntry)+'/ddpg_target_actor.h5')
+    target_actor.load_weights('src/stalker/scripts/checkpoints/st_co'+str(checkpoint)+'/try'+str(ntry)+'/ddpg_target_actor2.h5')
 
     distances = []
     angles = []

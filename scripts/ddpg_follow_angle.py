@@ -172,7 +172,7 @@ class Environment:
         self.previous_action = np.zeros(num_actions)
         self.done = False
         self.max_timesteps = 1024
-        self.ngraph = 0
+        self.ngraph = 14
         
         # Define Subscriber
         self.sub_detector = rospy.Subscriber("/box", PREDdata, self.DetectCallback)
@@ -296,9 +296,9 @@ class Environment:
             # plt.grid()
             # plt.savefig('/home/andreas/andreas/catkin_ws/src/stalker/scripts/checkpoints/follow'+str(checkpoint)+'/reward_per_error'+str(ntry)+'')
             plt.figure()
+            plt.plot(angles, 'g')
             plt.plot(distances_x, 'b')
             plt.plot(distances_y, 'r')
-            plt.plot(angles, 'g')
             plt.grid()
             plt.savefig('/home/andreas/andreas/catkin_ws/src/stalker/scripts/checkpoints/follow'+str(checkpoint)+'/try'+str(ntry)+'/distancexy'+str(self.ngraph))
 
@@ -569,11 +569,11 @@ if __name__=='__main__':
     target_critic.set_weights(critic_model.get_weights())
 
     # Load pretrained weights
-    # actor_model.load_weights('/home/andreas/andreas/catkin_ws/src/stalker/scripts/checkpoints/follow'+str(checkpoint)+'/try'+str(ntry)+'/ddpg_actor.h5')
-    # critic_model.load_weights('/home/andreas/andreas/catkin_ws/src/stalker/scripts/checkpoints/follow'+str(checkpoint)+'/try'+str(ntry)+'/ddpg_critic.h5')
+    actor_model.load_weights('/home/andreas/andreas/catkin_ws/src/stalker/scripts/checkpoints/follow'+str(checkpoint)+'/try'+str(ntry)+'/ddpg_actor.h5')
+    critic_model.load_weights('/home/andreas/andreas/catkin_ws/src/stalker/scripts/checkpoints/follow'+str(checkpoint)+'/try'+str(ntry)+'/ddpg_critic.h5')
 
-    # target_actor.load_weights('/home/andreas/andreas/catkin_ws/src/stalker/scripts/checkpoints/follow'+str(checkpoint)+'/try'+str(ntry)+'/ddpg_target_actor.h5')
-    # target_critic.load_weights('/home/andreas/andreas/catkin_ws/src/stalker/scripts/checkpoints/follow'+str(checkpoint)+'/try'+str(ntry)+'/ddpg_target_critic.h5')
+    target_actor.load_weights('/home/andreas/andreas/catkin_ws/src/stalker/scripts/checkpoints/follow'+str(checkpoint)+'/try'+str(ntry)+'/ddpg_target_actor.h5')
+    target_critic.load_weights('/home/andreas/andreas/catkin_ws/src/stalker/scripts/checkpoints/follow'+str(checkpoint)+'/try'+str(ntry)+'/ddpg_target_critic.h5')
 
     # Learning rate for actor-critic models
     critic_lr = 0.001

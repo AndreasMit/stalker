@@ -177,7 +177,8 @@ class Environment:
         self.done = False
         self.max_timesteps = 1024 # 512
         self.ngraph = 0
-        
+        self.max_avg_reward = -1000
+
         # Define Subscriber
         self.sub_detector = rospy.Subscriber("/box", PREDdata, self.DetectCallback)
         self.sub_position = rospy.Subscriber("/mavros/local_position/odom", Odometry, self.PoseCallback)
@@ -252,8 +253,8 @@ class Environment:
         position_reset = PositionTarget()
         position_reset.type_mask = 2496
         position_reset.coordinate_frame = 1
-        position_reset.position.x = self.x_initial
-        position_reset.position.y = self.y_initial
+        position_reset.position.x = self.x_initial + np.random.normal(0,1)*4
+        position_reset.position.y = self.y_initial + np.random.normal(0,1)*4
         position_reset.position.z = self.z_initial
         position_reset.yaw = self.yaw_initial
         self.pub_pos.publish(position_reset) 
@@ -271,16 +272,17 @@ class Environment:
         # print("Episode * {} * Cur Reward is ==> {}".format(self.current_episode,self.episodic_reward))
         print("Episode * {} * Avg Reward is ==> {}".format(self.current_episode, avg_reward))
         avg_reward_list.append(avg_reward)
-       
+
+        if (avg_reward > self.max_avg_reward and avg_reward != 0):
+                self.max_avg_reward = avg_reward
+                actor_model.save_weights("/home/andreas/andreas/catkin_ws/src/stalker/scripts/checkpoints/st_co"+str(checkpoint)+"/try"+str(ntry)+"/ddpg_actor"+str(self.ngraph)+".h5")
+                critic_model.save_weights("/home/andreas/andreas/catkin_ws/src/stalker/scripts/checkpoints/st_co"+str(checkpoint)+"/try"+str(ntry)+"/ddpg_critic"+str(self.ngraph)+".h5")
+                target_actor.save_weights("/home/andreas/andreas/catkin_ws/src/stalker/scripts/checkpoints/st_co"+str(checkpoint)+"/try"+str(ntry)+"/ddpg_target_actor"+str(self.ngraph)+".h5")
+                target_critic.save_weights("/home/andreas/andreas/catkin_ws/src/stalker/scripts/checkpoints/st_co"+str(checkpoint)+"/try"+str(ntry)+"/ddpg_target_critic"+str(self.ngraph)+".h5")    
+                print("-----Weights saved-----")
 
         # Save the weights every 30 episodes to a file
-        if self.current_episode % 10 == 0.0:
-            actor_model.save_weights("/home/andreas/andreas/catkin_ws/src/stalker/scripts/checkpoints/st_co"+str(checkpoint)+"/try"+str(ntry)+"/ddpg_actor.h5")
-            critic_model.save_weights("/home/andreas/andreas/catkin_ws/src/stalker/scripts/checkpoints/st_co"+str(checkpoint)+"/try"+str(ntry)+"/ddpg_critic.h5")
-            target_actor.save_weights("/home/andreas/andreas/catkin_ws/src/stalker/scripts/checkpoints/st_co"+str(checkpoint)+"/try"+str(ntry)+"/ddpg_target_actor.h5")
-            target_critic.save_weights("/home/andreas/andreas/catkin_ws/src/stalker/scripts/checkpoints/st_co"+str(checkpoint)+"/try"+str(ntry)+"/ddpg_target_critic.h5")    
-            print("-----Weights saved-----")     
-
+        if self.current_episode % 5 == 0.0:  
             plt.figure() 
             plt.plot(ep_reward_list, 'b')
             plt.plot(avg_reward_list, 'r')
@@ -299,13 +301,14 @@ class Environment:
             plt.grid()
             plt.savefig('/home/andreas/andreas/catkin_ws/src/stalker/scripts/checkpoints/st_co'+str(checkpoint)+'/try'+str(ntry)+'/distance_and_angle'+str(self.ngraph))
 
-        if self.current_episode % 150 == 0.0:
+        if self.current_episode % 200 == 0.0:
             self.ngraph += 1
             #we do this so we reduce memory used and take less time to save the graphs (less delay in training)
             ep_reward_list.clear()
             avg_reward_list.clear()
             distances.clear()
             angles.clear()
+            self.max_avg_reward = -1000 #reset for every 200 episodes, we get the max weights in each graph
 
 
         # Reset episodic reward and timestep to zero
@@ -336,7 +339,7 @@ class Environment:
     def DetectCallback(self, msg):
         #we need updated values for attitude thus
         if self.new_pose == False:
-            # print('no new pose')
+            # print('no new pose'+str(self.timestep))
             return
         else:
             self.new_pose = False
@@ -356,7 +359,7 @@ class Environment:
                 # print('good position')
                 # print(self.distance, self.angle)
                 self.x_initial = self.x_position
-                self.y_initial = self.y_position
+                self.y_initial = self.y_position 
                 # self.z_initial = self.z_position #keep it to 7 meters
                 self.yaw_initial = self.yaw
 
@@ -376,30 +379,30 @@ class Environment:
                     self.z_initial = 7.0
                     self.yaw_initial = 90.0
 
-                # self.go_to_start()
-                # if abs(self.x_position-self.x_initial)<0.2 and abs(self.y_position-self.y_initial)<0.2 and abs(self.z_position-self.z_initial)<0.2 :
-                #     self.reset()                 
-                #     print("Reset")                   
-                #     print("Begin Episode %d" %self.current_episode)
+                self.go_to_start()
+                if abs(self.x_position-self.x_initial)<0.3 and abs(self.y_position-self.y_initial)<0.3 and abs(self.z_position-self.z_initial)<0.3 :
+                    self.reset()                 
+                    print("Reset")                   
+                    print("Begin Episode %d" %self.current_episode)
 
-                # instead go to last frame that had detection
-                if not self.to_start:
-                    self.go_to_start()
-                # When reach the inital position, begin next episode    
-                if abs(self.x_position-self.x_initial)<0.2 and abs(self.y_position-self.y_initial)<0.2 and abs(self.z_position-self.z_initial)<0.2 :
-                    self.to_start = True
-                    # print('setting yaw')
-                    action_mavros = AttitudeTarget()
-                    action_mavros.type_mask = 7
-                    action_mavros.thrust = 0.5 # Altitude hold
-                    action_mavros.orientation = self.rpy2quat(0.0,0.0,self.yaw_initial) 
-                    self.pub_action.publish(action_mavros)
-                    if abs(self.yaw - self.yaw_initial)<10 :
-                        self.reset()                 
-                        print("Reset")                   
-                        print("Begin Episode %d" %self.current_episode)  
-                else:
-                    self.to_start = False               
+                # # instead go to last frame that had detection
+                # if not self.to_start:
+                #     self.go_to_start()
+                # # When reach the inital position, begin next episode    
+                # if abs(self.x_position-self.x_initial)<0.2 and abs(self.y_position-self.y_initial)<0.2 and abs(self.z_position-self.z_initial)<0.2 :
+                #     self.to_start = True
+                #     # print('setting yaw')
+                #     action_mavros = AttitudeTarget()
+                #     action_mavros.type_mask = 7
+                #     action_mavros.thrust = 0.5 # Altitude hold
+                #     action_mavros.orientation = self.rpy2quat(0.0,0.0,self.yaw_initial) 
+                #     self.pub_action.publish(action_mavros)
+                #     if abs(self.yaw - self.yaw_initial)<10 :
+                #         self.reset()                 
+                #         print("Reset")                   
+                #         print("Begin Episode %d" %self.current_episode)  
+                # else:
+                #     self.to_start = False               
             else:           
                 # Compute the current state
                 max_distance = 360 #pixels
@@ -586,7 +589,7 @@ if __name__=='__main__':
 
 
     checkpoint = 0 #checkpoint try
-    ntry = 3
+    ntry = 4
 
     actor_model = get_actor()
     print("Actor Model Summary")
