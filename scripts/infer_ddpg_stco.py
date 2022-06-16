@@ -17,6 +17,7 @@ from mavros_msgs.msg import PositionTarget
 import pylab
 from stalker.msg import PREDdata
 from BoxToLineClass import line_detector
+import csv
 
 #-------------------------------- CLASS ENVIRONMENT --------------------------------#
 
@@ -178,15 +179,22 @@ class Environment:
                 self.action[1] = np.clip(self.action[1], angle_min, angle_max)
                 self.action[2] = np.clip(self.action[2], yaw_min, yaw_max)
 
+                with open('src/stalker/scripts/checkpoints/st_co'+str(checkpoint)+'/try'+str(ntry)+'/logfile'+str(nntry)+'.csv', 'a', newline='') as f:
+                    writer = csv.writer(f)
+                    data = [ rospy.get_rostime(), self.distance/max_distance, self.angle/max_angle, self.x_velocity, self.z_position , self.action[0], self.action[1], self.action[2] ]
+                    writer.writerow(data)
+
                 distances.append(self.distance/max_distance)
                 angles.append(self.angle/max_angle)
                 if self.timestep % 30 == 0:
-                    plt.figure(0)
-                    plt.plot(distances, 'b')
-                    plt.plot(angles, 'r')
+                    plt.figure()
+                    plt.plot(distances, 'b', label='distance')
+                    plt.plot(angles, 'r', label='angle')
+                    plt.ylim(-0.5,0.5)
+                    plt.legend()
                     plt.grid()
                     plt.savefig('src/stalker/scripts/checkpoints/st_co'+str(checkpoint)+'/try'+str(ntry)+'/infer_distance_error'+str(nntry))
-                    # print('height: ', self.z_position,', velocity: ' ,self.x_velocity)
+                    print('height: ', self.z_position,', velocity: ' ,self.x_velocity)
 
                 self.timestep += 1
                 
@@ -202,6 +210,7 @@ class Environment:
                 action_mavros.type_mask = 7
                 action_mavros.thrust = 0.5
                 action_mavros.orientation = self.rpy2quat(roll_des,pitch_des,yaw_des)
+                action_mavros.header.stamp = rospy.get_rostime()
                 self.pub_action.publish(action_mavros)
      
 
@@ -236,8 +245,8 @@ if __name__=='__main__':
     yaw_min = -5.0
 
     checkpoint = 0 #checkpoint try
-    ntry = 4
-    nntry = '2a'
+    ntry = 5
+    nntry = 2
     target_actor = get_actor()
     target_actor.load_weights('src/stalker/scripts/checkpoints/st_co'+str(checkpoint)+'/try'+str(ntry)+'/ddpg_target_actor2.h5')
 
@@ -245,7 +254,7 @@ if __name__=='__main__':
     angles = []
     Environment()
 
-    r = rospy.Rate(20)
+    r = rospy.Rate(10)
     while not rospy.is_shutdown:
         r.sleep()    
 

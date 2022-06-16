@@ -141,12 +141,14 @@ class Environment:
         # Initialize yaw to zero
         self.initial_pose()
 
-        self.checkpoint  = 0 
         # Reset to initial positions
         self.x_initial = 0.0
         self.y_initial = 0.0
         self.z_initial = 7.0
         self.yaw_initial = 90.0
+
+        self.x_initial_noise = np.random.uniform(-4, 4)
+        self.y_initial_noise = np.random.uniform(-4, 4)
 
         #initialize current position
         self.x_position = 0.0
@@ -253,8 +255,8 @@ class Environment:
         position_reset = PositionTarget()
         position_reset.type_mask = 2496
         position_reset.coordinate_frame = 1
-        position_reset.position.x = self.x_initial + np.random.normal(0,1)*4
-        position_reset.position.y = self.y_initial + np.random.normal(0,1)*4
+        position_reset.position.x = self.x_initial + self.x_initial_noise
+        position_reset.position.y = self.y_initial + self.y_initial_noise
         position_reset.position.z = self.z_initial
         position_reset.yaw = self.yaw_initial
         self.pub_pos.publish(position_reset) 
@@ -282,12 +284,13 @@ class Environment:
                 print("-----Weights saved-----")
 
         # Save the weights every 30 episodes to a file
-        if self.current_episode % 5 == 0.0:  
+        if self.current_episode % 10 == 0.0:  
             plt.figure() 
-            plt.plot(ep_reward_list, 'b')
-            plt.plot(avg_reward_list, 'r')
+            plt.plot(ep_reward_list, 'b', label='ep_reward')
+            plt.plot(avg_reward_list, 'r', label='avg_reward')
             plt.ylabel('Score')
             plt.xlabel('Episodes')
+            plt.legend()
             plt.grid()
             plt.savefig('/home/andreas/andreas/catkin_ws/src/stalker/scripts/checkpoints/st_co'+str(checkpoint)+'/try'+str(ntry)+'/ddpg_score'+str(self.ngraph))
             print("-----Plots saved-----")
@@ -296,9 +299,10 @@ class Environment:
             # plt.grid()
             # plt.savefig('/home/andreas/andreas/catkin_ws/src/stalker/scripts/checkpoints/st_co'+str(checkpoint)+'/reward_per_error'+str(ntry)+'')
             plt.figure()
-            plt.plot(distances, 'b')
-            plt.plot(angles, 'r')
+            plt.plot(distances, 'b', label='distance')
+            plt.plot(angles, 'r', label='angle')
             plt.grid()
+            plt.legend()
             plt.savefig('/home/andreas/andreas/catkin_ws/src/stalker/scripts/checkpoints/st_co'+str(checkpoint)+'/try'+str(ntry)+'/distance_and_angle'+str(self.ngraph))
 
         if self.current_episode % 200 == 0.0:
@@ -318,6 +322,9 @@ class Environment:
         self.done = False
         self.exceeded_bounds = False  
         self.to_start  = False 
+        # random init again for each episode
+        self.x_initial_noise = np.random.uniform(-4, 4)
+        self.y_initial_noise = np.random.uniform(-4, 4)
 
     def PoseCallback(self,msg):
         self.position = msg
@@ -380,7 +387,8 @@ class Environment:
                     self.yaw_initial = 90.0
 
                 self.go_to_start()
-                if abs(self.x_position-self.x_initial)<0.3 and abs(self.y_position-self.y_initial)<0.3 and abs(self.z_position-self.z_initial)<0.3 :
+                if abs(self.x_position-self.x_initial-self.x_initial_noise)<0.4 and abs(self.y_position-self.y_initial-self.y_initial_noise)<0.4 and abs(self.z_position-self.z_initial)<0.5 :
+                    # print(self.x_position, self.y_position)
                     self.reset()                 
                     print("Reset")                   
                     print("Begin Episode %d" %self.current_episode)
@@ -481,8 +489,7 @@ class Environment:
                     update_target(target_critic.variables, critic_model.variables, tau) 
                     angles.append(self.angle/max_angle)
                     distances.append(self.distance/max_distance)
-                    # rewards.append(self.reward)
-                    # rolls.append(self.action[0]) 
+                    # rewards.append(self.reward) 
 
                     
                 self.previous_action = self.action                  
@@ -508,6 +515,7 @@ class Environment:
                 action_mavros.type_mask = 7
                 action_mavros.thrust = 0.5
                 action_mavros.orientation = self.rpy2quat(roll_des,pitch_des,yaw_des)
+                action_mavros.header.stamp = rospy.get_rostime()
                 self.pub_action.publish(action_mavros)
 
                 
@@ -589,15 +597,15 @@ if __name__=='__main__':
 
 
     checkpoint = 0 #checkpoint try
-    ntry = 4
+    ntry = 5
 
     actor_model = get_actor()
     print("Actor Model Summary")
-    print(actor_model.summary())
+    # print(actor_model.summary())
 
     critic_model = get_critic()
     print("Critic Model Summary")
-    print(critic_model.summary())
+    # print(critic_model.summary())
 
     target_actor = get_actor()
     target_critic = get_critic()
@@ -635,7 +643,6 @@ if __name__=='__main__':
     distances = []
     angles = []
     rewards = []
-    rolls = []
 
     Environment()
 
