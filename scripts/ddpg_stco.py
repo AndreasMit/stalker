@@ -600,11 +600,11 @@ if __name__=='__main__':
     ntry = 5
 
     actor_model = get_actor()
-    print("Actor Model Summary")
+    # print("Actor Model Summary")
     # print(actor_model.summary())
 
     critic_model = get_critic()
-    print("Critic Model Summary")
+    # print("Critic Model Summary")
     # print(critic_model.summary())
 
     target_actor = get_actor()

@@ -187,13 +187,15 @@ class Environment:
                 distances.append(self.distance/max_distance)
                 angles.append(self.angle/max_angle)
                 if self.timestep % 30 == 0:
-                    plt.figure()
+                    plt.figure(0)
+                    plt.title('distance and angle error', fontsize=10)
+                    plt.ylim(-0.5,0.5)
                     plt.plot(distances, 'b', label='distance')
                     plt.plot(angles, 'r', label='angle')
-                    plt.ylim(-0.5,0.5)
-                    plt.legend()
                     plt.grid()
+                    plt.legend()
                     plt.savefig('src/stalker/scripts/checkpoints/st_co'+str(checkpoint)+'/try'+str(ntry)+'/infer_distance_error'+str(nntry))
+                    plt.clf()
                     print('height: ', self.z_position,', velocity: ' ,self.x_velocity)
 
                 self.timestep += 1
@@ -245,16 +247,16 @@ if __name__=='__main__':
     yaw_min = -5.0
 
     checkpoint = 0 #checkpoint try
-    ntry = 5
-    nntry = 2
+    ntry = 4
+    nntry = '4d'
     target_actor = get_actor()
-    target_actor.load_weights('src/stalker/scripts/checkpoints/st_co'+str(checkpoint)+'/try'+str(ntry)+'/ddpg_target_actor2.h5')
+    target_actor.load_weights('src/stalker/scripts/checkpoints/st_co'+str(checkpoint)+'/try'+str(ntry)+'/ddpg_target_actor4.h5')
 
     distances = []
     angles = []
     Environment()
 
-    r = rospy.Rate(10)
+    r = rospy.Rate(20)
     while not rospy.is_shutdown:
         r.sleep()    
 

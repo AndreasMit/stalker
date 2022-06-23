@@ -22,7 +22,8 @@ class controller:
         self.linearVel = 0.5 #m/s
         # self.angularVel = random.sample([0.4, 0.9, 1.4, 1.9], 1)[0]
         # self.angularVel = random.sample([0.2, 0.5, 0.7, 1.0, 1.2, 1.5, 1.7, 2], 1)[0]
-        self.angularVel = random.sample([0.2, 0.5, 0.7, 1.0], 1)[0]
+        # self.angularVel = random.sample([0.2, 0.5, 0.7, 1.0], 1)[0]
+        self.angularVel = random.sample([0.2, 0, 0.5, 0, 0.7, 0, 1.0], 1)[0]
         # Set sig handler for proper termination #
         signal.signal(signal.SIGINT, self.sigHandler)
         signal.signal(signal.SIGTERM, self.sigHandler)
@@ -45,6 +46,7 @@ class controller:
                     else:
                         # Reset angular velocity 
                         self.angularVel = random.sample([0.2, 0.5, 0.7, 1.0], 1)[0]
+                        # self.angularVel = random.sample([0.2, 0, 0.5, 0, 0.7, 0, 1.0], 1)[0]
                         if sign == 0:
                             self.angularVel = self.angularVel
                             sign = 1

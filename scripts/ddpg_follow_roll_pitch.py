@@ -147,8 +147,8 @@ class Environment:
         self.z_initial = 4.0
         self.yaw_initial = 90.0
 
-        self.x_initial_noise = np.random.uniform(-4, 4)
-        self.y_initial_noise = np.random.uniform(-4, 4)
+        self.x_initial_noise = np.random.uniform(-1, 1)
+        self.y_initial_noise = np.random.uniform(-1, 1)
 
         #initialize current position
         self.x_position = 0.0
@@ -278,10 +278,11 @@ class Environment:
         avg_reward_list.append(avg_reward)
         
         if (avg_reward > self.max_avg_reward and avg_reward != 0):
-            actor_model.save_weights("/home/andreas/andreas/catkin_ws/src/stalker/scripts/checkpoints/follow"+str(checkpoint)+"/try"+str(ntry)+"/ddpg_actor.h5")
-            critic_model.save_weights("/home/andreas/andreas/catkin_ws/src/stalker/scripts/checkpoints/follow"+str(checkpoint)+"/try"+str(ntry)+"/ddpg_critic.h5")
-            target_actor.save_weights("/home/andreas/andreas/catkin_ws/src/stalker/scripts/checkpoints/follow"+str(checkpoint)+"/try"+str(ntry)+"/ddpg_target_actor.h5")
-            target_critic.save_weights("/home/andreas/andreas/catkin_ws/src/stalker/scripts/checkpoints/follow"+str(checkpoint)+"/try"+str(ntry)+"/ddpg_target_critic.h5")    
+            self.max_avg_reward = avg_reward
+            actor_model.save_weights("/home/andreas/andreas/catkin_ws/src/stalker/scripts/checkpoints/follow"+str(checkpoint)+"/try"+str(ntry)+"/ddpg_actor"+str(self.ngraph)+".h5")
+            critic_model.save_weights("/home/andreas/andreas/catkin_ws/src/stalker/scripts/checkpoints/follow"+str(checkpoint)+"/try"+str(ntry)+"/ddpg_critic"+str(self.ngraph)+".h5")
+            target_actor.save_weights("/home/andreas/andreas/catkin_ws/src/stalker/scripts/checkpoints/follow"+str(checkpoint)+"/try"+str(ntry)+"/ddpg_target_actor"+str(self.ngraph)+".h5")
+            target_critic.save_weights("/home/andreas/andreas/catkin_ws/src/stalker/scripts/checkpoints/follow"+str(checkpoint)+"/try"+str(ntry)+"/ddpg_target_critic"+str(self.ngraph)+".h5")    
             print("-----Weights saved-----")     
 
         # Save the weights every 30 episodes to a file
@@ -291,7 +292,7 @@ class Environment:
             plt.plot(avg_reward_list, 'r', label='avg_reward')
             plt.ylabel('Score')
             plt.xlabel('Episodes')
-            plt.legend()
+            # plt.legend()
             plt.grid()
             plt.savefig('/home/andreas/andreas/catkin_ws/src/stalker/scripts/checkpoints/follow'+str(checkpoint)+'/try'+str(ntry)+'/ddpg_score'+str(self.ngraph))
             print("-----Plots saved-----")
@@ -303,7 +304,7 @@ class Environment:
             plt.plot(distances_x, 'b', label='distance_x')
             plt.plot(distances_y, 'r', label='distance_y')
             # plt.plot(angles, 'g')
-            plt.legend()
+            # plt.legend()
             plt.grid()
             plt.savefig('/home/andreas/andreas/catkin_ws/src/stalker/scripts/checkpoints/follow'+str(checkpoint)+'/try'+str(ntry)+'/distancexy'+str(self.ngraph))
 
@@ -326,8 +327,8 @@ class Environment:
         self.exceeded_bounds = False  
         self.to_start  = False 
         # random init again for each episode
-        self.x_initial_noise = np.random.uniform(-4, 4)
-        self.y_initial_noise = np.random.uniform(-4, 4)
+        self.x_initial_noise = np.random.uniform(-1, 1)
+        self.y_initial_noise = np.random.uniform(-1, 1)
 
     def PoseCallback(self,msg):
         self.position = msg
@@ -558,21 +559,21 @@ if __name__=='__main__':
     num_actions = 2 
     num_states = 4  
 
-    angle_max = 5.0 
-    angle_min = -5.0 # constraints for commanded roll and pitch
+    angle_max = 3.0 
+    angle_min = -3.0 # constraints for commanded roll and pitch
     yaw_max = 5.0 #how much yaw should change every time
     yaw_min = -5.0
 
 
     checkpoint = 2 #checkpoint try
-    ntry = 5
+    ntry = 6
 
     actor_model = get_actor()
-    print("Actor Model Summary")
+    # print("Actor Model Summary")
     # print(actor_model.summary())
 
     critic_model = get_critic()
-    print("Critic Model Summary")
+    # print("Critic Model Summary")
     # print(critic_model.summary())
 
     target_actor = get_actor()
