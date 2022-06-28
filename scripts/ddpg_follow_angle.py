@@ -419,7 +419,7 @@ class Environment:
                 # print(self.angle)
                 # print(min(self.ddist_y/max_derivative, 1))
                 #normalized values only -> [0,1]
-                self.current_state = np.array([self.distance_x/max_distance_x, self.distance_y/max_distance_y, self.angle/max_angle, np.clip(self.ddist_x/max_derivative,-1, 1), np.clip(self.ddist_y/max_derivative,-1, 1)])
+                self.current_state = np.array([self.distance_x/max_distance_x, self.distance_y/max_distance_y, self.angle/max_angle, np.clip(self.ddist_x/max_derivative,-1, 1), np.clip(self.ddist_y/max_derivative,-1, 1), np.clip(self.y_velocity/max_velocity, -1, 1), np.clip(self.x_velocity/max_velocity, -1, 1)])
 
 
                 # Compute reward from the 2nd timestep and after
@@ -428,13 +428,13 @@ class Environment:
                     #REWARD
                     angle_error = abs(self.angle)/max_angle
                     distance_error = abs(self.distance_x)/max_distance_x + abs(self.distance_y)/max_distance_y 
-                    position_error = distance_error + angle_error 
+                    position_error = distance_error + 0.5*angle_error 
                     weight_position = 100
                     #max 200
 
                     #penalize derivative error
                     velocity_error = min(abs(self.ddist_x/max_derivative),1) + min(abs(self.ddist_y/max_derivative),1)
-                    weight_velocity = 60
+                    weight_velocity = 30
 
                     # penalize big roll and pitch values
                     #could do it with sqrt
@@ -445,7 +445,7 @@ class Environment:
                     self.reward  = -weight_position*position_error 
                     self.reward += -weight_velocity*velocity_error
                     self.reward += -weight_action*action
-                    self.reward = self.reward/450 # -> reward is between [-1,0]
+                    self.reward = self.reward/340 # -> reward is between [-1,0]
                     
                     # Record s,a,r,s'
                     buffer.record((self.previous_state, self.action, self.reward, self.current_state ))
@@ -551,7 +551,7 @@ if __name__=='__main__':
     tf.compat.v1.enable_eager_execution()
 
     num_actions = 3 
-    num_states = 5 
+    num_states = 7
 
     angle_max = 3.0 
     angle_min = -3.0 # constraints for commanded roll and pitch
@@ -559,8 +559,8 @@ if __name__=='__main__':
     yaw_min = -5.0
 
 
-    checkpoint = 3 #checkpoint try
-    ntry = 0
+    checkpoint = 1 #checkpoint try
+    ntry = 1
 
     actor_model = get_actor()
     # print("Actor Model Summary")
