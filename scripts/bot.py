@@ -58,7 +58,7 @@ class controller:
                         if counter == 30 :
                             print('random stop')
                             self.stopLeader()
-                            time.sleep(5)
+                            time.sleep(20)
 
                             counter = 0
                 

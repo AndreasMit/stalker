@@ -147,8 +147,8 @@ class Environment:
         self.z_initial = 4.0
         self.yaw_initial = 90.0
 
-        self.x_initial_noise = np.random.uniform(-2, 2)
-        self.y_initial_noise = np.random.uniform(-2, 2)
+        self.x_initial_noise = np.random.uniform(-3, 3)
+        self.y_initial_noise = np.random.uniform(-3, 3)
 
         #initialize current position
         self.x_position = 0.0
@@ -326,8 +326,8 @@ class Environment:
         self.exceeded_bounds = False  
         self.to_start  = False 
         # random init again for each episode
-        self.x_initial_noise = np.random.uniform(-2, 2)
-        self.y_initial_noise = np.random.uniform(-2, 2)
+        self.x_initial_noise = np.random.uniform(-3, 3)
+        self.y_initial_noise = np.random.uniform(-3, 3)
 
     def PoseCallback(self,msg):
         self.position = msg
@@ -391,7 +391,7 @@ class Environment:
             #only when exceeding bounds we do the following
             if self.done:
                 self.go_to_start()
-                if abs(self.x_position-self.x_initial-self.x_initial_noise)<0.3 and abs(self.y_position-self.y_initial-self.y_initial_noise)<0.3 and abs(self.z_position-self.z_initial)<0.1 :
+                if abs(self.x_position-self.x_initial-self.x_initial_noise)<0.1 and abs(self.y_position-self.y_initial-self.y_initial_noise)<0.1 and abs(self.z_position-self.z_initial)<0.1 :
                     self.reset()                 
                     print("Reset")                   
                     print("Begin Episode %d" %self.current_episode)      
@@ -555,8 +555,8 @@ if __name__=='__main__':
 
     angle_max = 3.0 
     angle_min = -3.0 # constraints for commanded roll and pitch
-    yaw_max = 5.0 #how much yaw should change every time
-    yaw_min = -5.0
+    yaw_max = 10.0 #how much yaw should change every time
+    yaw_min = -10.0
 
 
     checkpoint = 1 #checkpoint try

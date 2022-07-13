@@ -168,3 +168,15 @@ This command installs all the packages that the packages in your catkin workspac
 ```
 rosdep install --from-paths src --ignore-src -r -y :
 ```
+
+## YOLO installation
+```
+sudo apt install nvidia-cuda-toolkit
+
+cd catkin_ws/src
+git clone --recursive https://github.com/leggedrobotics/darknet_ros.git
+```
+```
+cd catkin_ws
+catkin build -DCMAKE_BUILD_TYPE=Release -DCMAKE_C_COMPILER=/usr/bin/gcc-6
+```

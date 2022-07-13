@@ -53,7 +53,10 @@ rosrun image_view image_view image:=/Detection
 ```
 rosrun image_view image_view image:=/RotDetection
 ```
-
+## run YOLO:
+```
+roslaunch darknet_ros darknet_ros.launch
+```
 ## extra (for reference):
 start gazebo alone:
 ```

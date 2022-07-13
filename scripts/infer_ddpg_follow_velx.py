@@ -294,14 +294,14 @@ if __name__=='__main__':
 
     angle_max = 3.0 
     angle_min = -3.0 # constraints for commanded roll and pitch
-    yaw_max = 5.0 #how much yaw should change every time
-    yaw_min = -5.0
+    yaw_max = 10.0 #how much yaw should change every time
+    yaw_min = -10.0
 
     checkpoint = 3 #checkpoint try
-    ntry = 1
-    nntry = 4
+    ntry = 4
+    nntry = 2
     target_actor = get_actor()
-    target_actor.load_weights('src/stalker/scripts/checkpoints/follow'+str(checkpoint)+'/try'+str(ntry)+'/ddpg_target_actor4.h5')
+    target_actor.load_weights('src/stalker/scripts/checkpoints/follow'+str(checkpoint)+'/try'+str(ntry)+'/ddpg_target_actor2.h5')
 
     distances_x = []
     distances_y = []

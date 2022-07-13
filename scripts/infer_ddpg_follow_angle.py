@@ -218,7 +218,7 @@ class Environment:
                
                 #normalized values only -> [0,1]
                 self.current_state = np.array([self.distance_x/max_distance_x, self.distance_y/max_distance_y, self.angle/max_angle, np.clip(self.ddist_x/max_derivative,-1, 1), np.clip(self.ddist_y/max_derivative,-1, 1), np.clip(self.y_velocity/max_velocity, -1, 1), np.clip(self.x_velocity/max_velocity, -1, 1)])
-                 
+
                 # Pick an action according to actor network
                 tf_current_state = tf.expand_dims(tf.convert_to_tensor(self.current_state), 0)
                 tf_action = tf.squeeze(target_actor(tf_current_state))
@@ -294,12 +294,12 @@ if __name__=='__main__':
 
     angle_max = 3.0 
     angle_min = -3.0 # constraints for commanded roll and pitch
-    yaw_max = 5.0 #how much yaw should change every time
-    yaw_min = -5.0
+    yaw_max = 10.0 #how much yaw should change every time
+    yaw_min = -10.0
 
     checkpoint = 1 #checkpoint try
     ntry = 1
-    nntry = 3
+    nntry = '3b'
     target_actor = get_actor()
     target_actor.load_weights('src/stalker/scripts/checkpoints/follow'+str(checkpoint)+'/try'+str(ntry)+'/ddpg_target_actor3.h5')
 
