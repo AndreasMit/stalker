@@ -239,7 +239,7 @@ class Environment:
                 if self.timestep % 30 == 0:
                     plt.figure(0)
                     plt.title('distance and angle error', fontsize=10)
-                    plt.ylim(-0.5,0.5)
+                    plt.ylim(-0.6,0.6)
                     plt.plot(angles, 'g', label='angle')
                     plt.plot(distances_x, 'b', label='distance_x')
                     plt.plot(distances_y, 'r', label='distance_y')
@@ -299,16 +299,17 @@ if __name__=='__main__':
 
     checkpoint = 3 #checkpoint try
     ntry = 4
-    nntry = 2
+    nntry = 3
     target_actor = get_actor()
-    target_actor.load_weights('src/stalker/scripts/checkpoints/follow'+str(checkpoint)+'/try'+str(ntry)+'/ddpg_target_actor2.h5')
+    target_actor.load_weights('src/stalker/scripts/checkpoints/follow'+str(checkpoint)+'/try'+str(ntry)+'/ddpg_target_actor3.h5')
 
     distances_x = []
     distances_y = []
     angles = []
     Environment()
 
-    r = rospy.Rate(20)
+    # r = rospy.Rate(20)
+    r = rospy.Rate(10)
     while not rospy.is_shutdown:
         r.sleep()    
 

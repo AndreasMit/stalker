@@ -275,6 +275,11 @@ class Environment:
         print("Episode * {} * Avg Reward is ==> {}".format(self.current_episode, avg_reward))
         avg_reward_list.append(avg_reward)
 
+        with open('/home/andreas/andreas/catkin_ws/src/stalker/scripts/checkpoints/st_co'+str(checkpoint)+'/try'+str(ntry)+'/training_reward.csv', 'a', newline='') as f:
+            writer = csv.writer(f)
+            data = [ avg_reward, self.episodic_reward*self.max_timesteps/self.timestep ]
+            writer.writerow(data)
+
         if (avg_reward > self.max_avg_reward and avg_reward != 0):
                 self.max_avg_reward = avg_reward
                 actor_model.save_weights("/home/andreas/andreas/catkin_ws/src/stalker/scripts/checkpoints/st_co"+str(checkpoint)+"/try"+str(ntry)+"/ddpg_actor"+str(self.ngraph)+".h5")
@@ -285,7 +290,8 @@ class Environment:
 
         # Save the weights every 30 episodes to a file
         if self.current_episode % 10 == 0.0:  
-            plt.figure() 
+            plt.figure(0) 
+            plt.title('training reward', fontsize=10)
             plt.plot(ep_reward_list, 'b', label='ep_reward')
             plt.plot(avg_reward_list, 'r', label='avg_reward')
             plt.ylabel('Score')
@@ -293,17 +299,18 @@ class Environment:
             plt.legend()
             plt.grid()
             plt.savefig('/home/andreas/andreas/catkin_ws/src/stalker/scripts/checkpoints/st_co'+str(checkpoint)+'/try'+str(ntry)+'/ddpg_score'+str(self.ngraph))
-            print("-----Plots saved-----")
-            # plt.figure(1)
-            # plt.scatter(distances, angles, c=rewards)
-            # plt.grid()
-            # plt.savefig('/home/andreas/andreas/catkin_ws/src/stalker/scripts/checkpoints/st_co'+str(checkpoint)+'/reward_per_error'+str(ntry)+'')
-            plt.figure()
+            plt.clf()
+
+            plt.figure(1)
+            plt.title('distance and angle error', fontsize=10)
             plt.plot(distances, 'b', label='distance')
             plt.plot(angles, 'r', label='angle')
             plt.grid()
             plt.legend()
             plt.savefig('/home/andreas/andreas/catkin_ws/src/stalker/scripts/checkpoints/st_co'+str(checkpoint)+'/try'+str(ntry)+'/distance_and_angle'+str(self.ngraph))
+            plt.clf()
+
+            print("-----Plots saved-----")
 
         if self.current_episode % 200 == 0.0:
             self.ngraph += 1
@@ -504,6 +511,11 @@ class Environment:
                 self.action[1] = np.clip(self.action[1], angle_min, angle_max)
                 self.action[2] = np.clip(self.action[2], yaw_min, yaw_max)
 
+                with open('/home/andreas/andreas/catkin_ws/src/stalker/scripts/checkpoints/st_co'+str(checkpoint)+'/try'+str(ntry)+'/training_error.csv', 'a', newline='') as f:
+                    writer = csv.writer(f)
+                    data = [ rospy.get_rostime(), self.distance/max_distance, self.angle/max_angle, self.x_velocity, self.z_position , self.action[0], self.action[1], self.action[2] ]
+                    writer.writerow(data)
+                    
                 # Roll, Pitch, Yaw in Degrees
                 roll_des = self.action[0]
                 pitch_des = self.action[1] 

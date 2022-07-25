@@ -292,7 +292,8 @@ class Environment:
 
         # Save the weights every 30 episodes to a file
         if self.current_episode % 10 == 0.0:  
-            plt.figure() 
+            plt.figure(0) 
+            plt.title('training reward', fontsize=10)
             plt.plot(ep_reward_list, 'b', label='ep_reward')
             plt.plot(avg_reward_list, 'r', label='avg_reward')
             plt.ylabel('Score')
@@ -300,17 +301,18 @@ class Environment:
             plt.legend()
             plt.grid()
             plt.savefig('/home/andreas/andreas/catkin_ws/src/stalker/scripts/checkpoints/st_co'+str(checkpoint)+'/try'+str(ntry)+'/ddpg_score'+str(self.ngraph))
-            print("-----Plots saved-----")
-            # plt.figure(1)
-            # plt.scatter(distances, angles, c=rewards)
-            # plt.grid()
-            # plt.savefig('/home/andreas/andreas/catkin_ws/src/stalker/scripts/checkpoints/st_co'+str(checkpoint)+'/reward_per_error'+str(ntry)+'')
-            plt.figure()
+            plt.clf()
+
+            plt.figure(1)
+            plt.title('distance and angle error', fontsize=10)
             plt.plot(distances, 'b', label='distance')
             plt.plot(angles, 'r', label='angle')
             plt.grid()
             plt.legend()
             plt.savefig('/home/andreas/andreas/catkin_ws/src/stalker/scripts/checkpoints/st_co'+str(checkpoint)+'/try'+str(ntry)+'/distance_and_angle'+str(self.ngraph))
+            plt.clf()
+
+            print("-----Plots saved-----")
 
         if self.current_episode % 200 == 0.0:
             self.ngraph += 1
@@ -436,8 +438,8 @@ class Environment:
                     self.shaping += -weight_velocity*velocity_error
                     self.shaping += -weight_action*action
                     # self.new_shaping = self.new_shaping/350 # -> reward is between [-1,0]
-                    self.reward = self.shaping - self.shaping_prev
-                    print(self.reward)
+                    self.reward = self.shaping/220 #- self.shaping_prev
+                    # print(self.reward)
                     # Record s,a,r,s'
                     buffer.record((self.previous_state, self.action, self.reward, self.current_state ))
 
@@ -453,7 +455,7 @@ class Environment:
 
                     
                 self.previous_action = self.action
-                self.shaping_prev = self.shaping                  
+                # self.shaping_prev = self.shaping                  
 
                 # Pick an action according to actor network
                 tf_current_state = tf.expand_dims(tf.convert_to_tensor(self.current_state), 0)

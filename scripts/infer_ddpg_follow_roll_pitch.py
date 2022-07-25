@@ -308,7 +308,8 @@ if __name__=='__main__':
     angles = []
     Environment()
 
-    r = rospy.Rate(20)
+    # r = rospy.Rate(20)
+    r = rospy.Rate(10)
     while not rospy.is_shutdown:
         r.sleep()    
 
