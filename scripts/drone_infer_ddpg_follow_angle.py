@@ -16,7 +16,7 @@ from tensorflow.keras import layers
 from mavros_msgs.msg import PositionTarget
 import pylab
 from stalker.msg import PREDdata
-from BoxToLineClass import line_detector
+from BoxToCenter import center_detector
 import csv
 
 #-------------------------------- CLASS ENVIRONMENT --------------------------------#
@@ -26,20 +26,18 @@ class Environment:
     def __init__(self):
         
         # Publishers
-        # self.pub_pos  = rospy.Publisher("/mavros/setpoint_raw/local",PositionTarget,queue_size=10000)
         self.pub_action = rospy.Publisher("/mavros/setpoint_raw/attitude", AttitudeTarget, queue_size=10000)
-        
 
         # Reset to initial positions
         self.x_initial = 0.0
         self.y_initial = 0.0
-        self.z_initial = 7.0
+        self.z_initial = 4.0
         self.yaw_initial = 90.0
 
         #initialize current position
         self.x_position = 0.0
         self.y_position = 0.0
-        self.z_position= 7.0
+        self.z_position= 4.0
         self.x_velocity = 0.0
         self.y_velocity = 0.0
         self.z_velocity = 0.0 
@@ -56,23 +54,25 @@ class Environment:
 
         # Initialize variables
         self.action = np.zeros(num_actions)
+        self.previous_state = np.zeros(num_states)
         self.current_episode = 0
         
         # Define Subscriber !edit type
         self.sub_detector = rospy.Subscriber("/box", PREDdata, self.DetectCallback)
-        # self.sub_position = rospy.Subscriber("/mavros/local_position/odom", Odometry, self.PoseCallback)
         
         # Define line taken from detector
         self.box = PREDdata()
-        self.desired_pos_z = 7.0
-        self.desired_vel_x = 1
-        self.distance, self.angle = 0, 0
         self.new_pose = False
-
-        self.Line = line_detector()
         self.timestep = 0
 
-
+        self.detector = center_detector()
+        self.distance_x = 0
+        self.distance_y = 0
+        self.angle = 0
+        self.ddist_x = 0
+        self.ddist_y = 0
+        self.dt = 0
+        self.time_prev = 0
 
 
     # Convert roll, pitch, yaw (in degrees) to quaternion
@@ -147,29 +147,43 @@ class Environment:
             self.new_pose = False
             # Read Current detection
             self.box = msg
-            self.distance , self.angle = self.Line.compute(self.box, self.roll, self.pitch, self.z_position)
-            # print(self.distance, self.angle, self.z_position)
-            # print(self.angle, self.yaw)
-            if self.distance == 10000 and self.angle == 0 :
-                self.exceeded_bounds = True
-            elif abs(self.angle) < 0.5 and abs(self.distance) > 270: # this case is when the box is on the edge of the image and its not really vertical
-                self.exceeded_bounds = True
-            elif abs(self.angle) > 89.5: # this includes being vertical to the pavement but also cases when the detection is on the edge of image and is not reliable
-                self.exceeded_bounds = True 
+            self.distance_x, self.distance_y, self.angle = self.detector.compute(self.box, self.roll, self.pitch, self.z_position)
 
+            #time synching for differantiation
+            rostime_now = rospy.get_rostime()
+            self.time_now = rostime_now.to_nsec()
+            if self.time_prev == 0:
+                self.dt = 0
+            else:
+                self.dt = (self.time_now - self.time_prev)/1e9
+            self.time_prev = self.time_now
+
+            if self.distance_x == 10000 and self.distance_y == 10000 :
+                self.exceeded_bounds = True
 
             if self.exceeded_bounds and not self.done:
-                print("Exceeded Bounds ")             
+                print("Exceeded Bounds")        
             else:           
                 # Compute the current state
-                max_distance = 360 #pixels
+                max_distance_x = 240 #pixels
+                max_distance_y = 360
                 max_velocity = 2 #m/s
                 max_angle = 90 #degrees #bad name of variable ,be careful there is angle_max too for pitch and roll.
+                max_derivative = 100
 
                 #STATE
+                if self.dt == 0:
+                    self.ddist_x = 0
+                    self.ddist_y = 0
+                else:
+                    self.ddist_x = ( self.distance_x - int(self.previous_state[0]*max_distance_x) ) / self.dt
+                    self.ddist_y = ( self.distance_y - int(self.previous_state[1]*max_distance_y) ) / self.dt
+                    # values -> 2,4,6 pixels (because of resolution reduction in BoxToCenter)
+                    # most common 2 pixels movement , /0.1 === *10 => 20 is the most common value 
+               
                 #normalized values only -> [0,1]
-                self.current_state = np.array([self.distance/max_distance, np.clip(self.y_velocity/max_velocity,-1, 1), self.angle/max_angle , np.clip((self.x_velocity - self.desired_vel_x)/max_velocity,-1, 1)])
-                 
+                self.current_state = np.array([self.distance_x/max_distance_x, self.distance_y/max_distance_y, self.angle/max_angle, np.clip(self.ddist_x/max_derivative,-1, 1), np.clip(self.ddist_y/max_derivative,-1, 1), np.clip(self.y_velocity/max_velocity, -1, 1), np.clip(self.x_velocity/max_velocity, -1, 1)])
+
                 # Pick an action according to actor network
                 tf_current_state = tf.expand_dims(tf.convert_to_tensor(self.current_state), 0)
                 tf_action = tf.squeeze(target_actor(tf_current_state))
@@ -179,27 +193,30 @@ class Environment:
                 self.action[1] = np.clip(self.action[1], angle_min, angle_max)
                 self.action[2] = np.clip(self.action[2], yaw_min, yaw_max)
 
-                with open('src/stalker/scripts/checkpoints/st_co'+str(checkpoint)+'/try'+str(ntry)+'/logfile'+str(nntry)+'.csv', 'a', newline='') as f:
+                with open('src/stalker/scripts/checkpoints/follow'+str(checkpoint)+'/try'+str(ntry)+'/logfile'+str(nntry)+'.csv', 'a', newline='') as f:
                     writer = csv.writer(f)
-                    data = [ rospy.get_rostime(), self.distance/max_distance, self.angle/max_angle, self.x_velocity, self.z_position , self.action[0], self.action[1], self.action[2] ]
+                    data = [ rospy.get_rostime(), self.distance_x/max_distance_x,self.distance_y/max_distance_y, self.angle/max_angle, self.x_velocity, self.y_velocity, self.z_position , self.action[0], self.action[1], self.action[2] ]
                     writer.writerow(data)
 
-                distances.append(self.distance/max_distance)
+                distances_x.append(self.distance_x/max_distance_x)
+                distances_y.append(self.distance_y/max_distance_y)
                 angles.append(self.angle/max_angle)
                 if self.timestep % 30 == 0:
                     plt.figure(0)
                     plt.title('distance and angle error', fontsize=10)
                     plt.ylim(-0.5,0.5)
-                    plt.plot(distances, 'b', label='distance')
-                    plt.plot(angles, 'r', label='angle')
+                    plt.plot(angles, 'g', label='angle')
+                    plt.plot(distances_x, 'b', label='distance_x')
+                    plt.plot(distances_y, 'r', label='distance_y')
                     plt.grid()
                     plt.legend()
-                    plt.savefig('src/stalker/scripts/checkpoints/st_co'+str(checkpoint)+'/try'+str(ntry)+'/infer_distance_error'+str(nntry))
+                    plt.savefig('src/stalker/scripts/checkpoints/follow'+str(checkpoint)+'/try'+str(ntry)+'/infer_distance_error'+str(nntry))
                     plt.clf()
-                    print('height: ', self.z_position,', velocity: ' ,self.x_velocity)
+                    # print('height: ', self.z_position,', velocity: ' ,self.x_velocity)
 
                 self.timestep += 1
-                
+                self.previous_state = self.current_state
+
 
                 # Roll, Pitch, Yaw in Degrees
                 roll_des = self.action[0]
@@ -212,7 +229,6 @@ class Environment:
                 action_mavros.type_mask = 7
                 action_mavros.thrust = 0.5
                 action_mavros.orientation = self.rpy2quat(roll_des,pitch_des,yaw_des)
-                action_mavros.header.stamp = rospy.get_rostime()
                 self.pub_action.publish(action_mavros)
      
 
@@ -238,25 +254,27 @@ if __name__=='__main__':
     rospy.init_node('rl_node', anonymous=True)
     tf.compat.v1.enable_eager_execution()
 
-    num_actions = 3 
-    num_states = 4  
+    num_actions = 3
+    num_states = 7 
 
     angle_max = 3.0 
     angle_min = -3.0 # constraints for commanded roll and pitch
-    yaw_max = 5.0 #how much yaw should change every time
-    yaw_min = -5.0
+    yaw_max = 10.0 #how much yaw should change every time
+    yaw_min = -10.0
 
-    checkpoint = 0 #checkpoint try
-    ntry = 4
-    nntry = '4d'
+    checkpoint = 1 #checkpoint try
+    ntry = 1
+    nntry = '3b'
     target_actor = get_actor()
-    target_actor.load_weights('src/stalker/scripts/checkpoints/st_co'+str(checkpoint)+'/try'+str(ntry)+'/ddpg_target_actor4.h5')
+    target_actor.load_weights('src/stalker/scripts/checkpoints/follow'+str(checkpoint)+'/try'+str(ntry)+'/ddpg_target_actor3.h5')
 
-    distances = []
+    distances_x = []
+    distances_y = []
     angles = []
     Environment()
 
-    r = rospy.Rate(20)
+    r = rospy.Rate(10)
+    # r = rospy.Rate(20)
     while not rospy.is_shutdown:
         r.sleep()    
 
