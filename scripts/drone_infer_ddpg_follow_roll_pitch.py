@@ -59,6 +59,7 @@ class Environment:
         
         # Define Subscriber !edit type
         self.sub_detector = rospy.Subscriber("/box", PREDdata, self.DetectCallback)
+        self.sub_position = rospy.Subscriber("/mavros/local_position/odom", Odometry, self.PoseCallback)
         
         # Define line taken from detector
         self.box = PREDdata()
