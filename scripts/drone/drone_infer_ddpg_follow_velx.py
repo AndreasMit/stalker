@@ -16,7 +16,7 @@ from tensorflow.keras import layers
 from mavros_msgs.msg import PositionTarget
 import pylab
 from stalker.msg import PREDdata
-from BoxToCenter import center_detector
+from DroneBoxToCenter import center_detector
 import csv
 
 #-------------------------------- CLASS ENVIRONMENT --------------------------------#
@@ -165,8 +165,8 @@ class Environment:
                 print("Exceeded Bounds")         
             else:           
                 # Compute the current state
-                max_distance_x = 240 #pixels
-                max_distance_y = 360
+                max_distance_x = 190 #pixels
+                max_distance_y = 336
                 max_velocity = 2 #m/s
                 max_angle = 90 #degrees #bad name of variable ,be careful there is angle_max too for pitch and roll.
                 max_derivative = 100
@@ -195,7 +195,7 @@ class Environment:
 
                 with open('src/stalker/scripts/checkpoints/follow'+str(checkpoint)+'/try'+str(ntry)+'/logfile'+str(nntry)+'.csv', 'a', newline='') as f:
                     writer = csv.writer(f)
-                    data = [ rospy.get_rostime(), self.distance_x/max_distance_x,self.distance_y/max_distance_y, self.angle/max_angle, self.x_velocity, self.y_velocity, self.z_position , self.action[0], self.action[1], self.action[2] ]
+                    data = [ rospy.get_rostime(), self.distance_x/max_distance_x,self.distance_y/max_distance_y, self.angle/max_angle, self.x_velocity, self.y_velocity, self.z_position , self.action[0], self.action[1], self.action[2], self.roll/angle_max, self.pitch/angle_max, self.yaw/yaw_max ]
                     writer.writerow(data)
 
                 distances_x.append(self.distance_x/max_distance_x)

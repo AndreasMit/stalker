@@ -230,7 +230,7 @@ class Environment:
 
                 with open('src/stalker/scripts/checkpoints/follow'+str(checkpoint)+'/try'+str(ntry)+'/logfile'+str(nntry)+'.csv', 'a', newline='') as f:
                     writer = csv.writer(f)
-                    data = [ rospy.get_rostime(), self.distance_x/max_distance_x,self.distance_y/max_distance_y, self.angle/max_angle, self.x_velocity, self.y_velocity, self.z_position , self.action[0], self.action[1] ]
+                    data = [ rospy.get_rostime(), self.distance_x/max_distance_x,self.distance_y/max_distance_y, self.angle/max_angle, self.x_velocity, self.y_velocity, self.z_position , self.action[0], self.action[1],self.roll/angle_max, self.pitch/angle_max, self.yaw/yaw_max ]
                     writer.writerow(data)
 
                 distances_x.append(self.distance_x/max_distance_x)

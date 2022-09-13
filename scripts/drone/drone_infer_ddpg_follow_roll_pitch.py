@@ -16,7 +16,7 @@ from tensorflow.keras import layers
 from mavros_msgs.msg import PositionTarget
 import pylab
 from stalker.msg import PREDdata
-from BoxToCenter import center_detector
+from DroneBoxToCenter import center_detector
 import csv
 
 #-------------------------------- CLASS ENVIRONMENT --------------------------------#
@@ -121,7 +121,6 @@ class Environment:
 
         return roll, pitch, yaw      
 
-
     def PoseCallback(self,msg):
         self.position = msg
         self.x_position = self.position.pose.pose.position.x
@@ -163,11 +162,11 @@ class Environment:
                 self.exceeded_bounds = True
 
             if self.exceeded_bounds and not self.done:
-                print("Exceeded Bounds")        
+                print("Exceeded Bounds")
             else:           
                 # Compute the current state
-                max_distance_x = 240 #pixels
-                max_distance_y = 360
+                max_distance_x = 190 #pixels
+                max_distance_y = 336
                 max_velocity = 2 #m/s
                 max_angle = 90 #degrees #bad name of variable ,be careful there is angle_max too for pitch and roll.
                 max_derivative = 100
@@ -183,8 +182,8 @@ class Environment:
                     # most common 2 pixels movement , /0.1 === *10 => 20 is the most common value 
                
                 #normalized values only -> [0,1]
-                self.current_state = np.array([self.distance_x/max_distance_x, self.distance_y/max_distance_y, self.angle/max_angle, np.clip(self.ddist_x/max_derivative,-1, 1), np.clip(self.ddist_y/max_derivative,-1, 1), np.clip(self.y_velocity/max_velocity, -1, 1), np.clip(self.x_velocity/max_velocity, -1, 1)])
-
+                self.current_state = np.array([self.distance_x/max_distance_x, self.distance_y/max_distance_y, np.clip(self.ddist_x/max_derivative, -1, 1), np.clip(self.ddist_y/max_derivative, -1, 1)])
+                 
                 # Pick an action according to actor network
                 tf_current_state = tf.expand_dims(tf.convert_to_tensor(self.current_state), 0)
                 tf_action = tf.squeeze(target_actor(tf_current_state))
@@ -192,11 +191,11 @@ class Environment:
                 # print(self.action)
                 self.action[0] = np.clip(self.action[0], angle_min, angle_max)
                 self.action[1] = np.clip(self.action[1], angle_min, angle_max)
-                self.action[2] = np.clip(self.action[2], yaw_min, yaw_max)
+                # self.action[2] = np.clip(self.action[2], yaw_min, yaw_max)
 
                 with open('src/stalker/scripts/checkpoints/follow'+str(checkpoint)+'/try'+str(ntry)+'/logfile'+str(nntry)+'.csv', 'a', newline='') as f:
                     writer = csv.writer(f)
-                    data = [ rospy.get_rostime(), self.distance_x/max_distance_x,self.distance_y/max_distance_y, self.angle/max_angle, self.x_velocity, self.y_velocity, self.z_position , self.action[0], self.action[1], self.action[2] ]
+                    data = [ rospy.get_rostime(), self.distance_x/max_distance_x,self.distance_y/max_distance_y, self.angle/max_angle, self.x_velocity, self.y_velocity, self.z_position , self.action[0], self.action[1],self.roll/angle_max, self.pitch/angle_max, self.yaw/yaw_max ]
                     writer.writerow(data)
 
                 distances_x.append(self.distance_x/max_distance_x)
@@ -206,9 +205,9 @@ class Environment:
                     plt.figure(0)
                     plt.title('distance and angle error', fontsize=10)
                     plt.ylim(-0.5,0.5)
-                    plt.plot(angles, 'g', label='angle')
                     plt.plot(distances_x, 'b', label='distance_x')
                     plt.plot(distances_y, 'r', label='distance_y')
+                    # plt.plot(angles, 'g', label='angle')
                     plt.grid()
                     plt.legend()
                     plt.savefig('src/stalker/scripts/checkpoints/follow'+str(checkpoint)+'/try'+str(ntry)+'/infer_distance_error'+str(nntry))
@@ -222,7 +221,7 @@ class Environment:
                 # Roll, Pitch, Yaw in Degrees
                 roll_des = self.action[0]
                 pitch_des = self.action[1] 
-                yaw_des = self.action[2] + self.yaw  #differences in yaw
+                yaw_des = 90 #self.action[2] + self.yaw  #differences in yaw
                 # print(yaw_des)
 
                 # Convert to mavros message and publish desired attitude
@@ -230,6 +229,7 @@ class Environment:
                 action_mavros.type_mask = 7
                 action_mavros.thrust = 0.5
                 action_mavros.orientation = self.rpy2quat(roll_des,pitch_des,yaw_des)
+                action_mavros.header.stamp = rospy.get_rostime()
                 self.pub_action.publish(action_mavros)
      
 
@@ -244,7 +244,7 @@ def get_actor():
     outputs = layers.Dense(num_actions, activation="tanh", kernel_initializer=last_init)(h2)
 
     # Output of tanh is [-1,1] so multiply with the upper control action
-    outputs = outputs * [angle_max, angle_max, yaw_max]
+    outputs = outputs * [angle_max, angle_max]
         
     model = tf.keras.Model(inputs, outputs)
 
@@ -255,27 +255,27 @@ if __name__=='__main__':
     rospy.init_node('rl_node', anonymous=True)
     tf.compat.v1.enable_eager_execution()
 
-    num_actions = 3
-    num_states = 7 
+    num_actions = 2 
+    num_states = 4  
 
     angle_max = 3.0 
     angle_min = -3.0 # constraints for commanded roll and pitch
-    yaw_max = 10.0 #how much yaw should change every time
-    yaw_min = -10.0
+    yaw_max = 5.0 #how much yaw should change every time
+    yaw_min = -5.0
 
-    checkpoint = 1 #checkpoint try
-    ntry = 1
-    nntry = '3b'
+    checkpoint = 2 #checkpoint try
+    ntry = 6
+    nntry = 2
     target_actor = get_actor()
-    target_actor.load_weights('src/stalker/scripts/checkpoints/follow'+str(checkpoint)+'/try'+str(ntry)+'/ddpg_target_actor3.h5')
+    target_actor.load_weights('src/stalker/scripts/checkpoints/follow'+str(checkpoint)+'/try'+str(ntry)+'/ddpg_target_actor2.h5')
 
     distances_x = []
     distances_y = []
     angles = []
     Environment()
 
-    r = rospy.Rate(10)
     # r = rospy.Rate(20)
+    r = rospy.Rate(10)
     while not rospy.is_shutdown:
         r.sleep()    
 

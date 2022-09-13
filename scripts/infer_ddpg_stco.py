@@ -60,7 +60,7 @@ class Environment:
         
         # Define Subscriber !edit type
         self.sub_detector = rospy.Subscriber("/box", PREDdata, self.DetectCallback)
-        # self.sub_position = rospy.Subscriber("/mavros/local_position/odom", Odometry, self.PoseCallback)
+        self.sub_position = rospy.Subscriber("/mavros/local_position/odom", Odometry, self.PoseCallback)
         
         # Define line taken from detector
         self.box = PREDdata()
@@ -181,7 +181,7 @@ class Environment:
 
                 with open('src/stalker/scripts/checkpoints/st_co'+str(checkpoint)+'/try'+str(ntry)+'/logfile'+str(nntry)+'.csv', 'a', newline='') as f:
                     writer = csv.writer(f)
-                    data = [ rospy.get_rostime(), self.distance/max_distance, self.angle/max_angle, self.x_velocity, self.z_position , self.action[0], self.action[1], self.action[2] ]
+                    data = [ rospy.get_rostime(), self.distance/max_distance, self.angle/max_angle, self.x_velocity, self.z_position , self.action[0], self.action[1], self.action[2] ,self.roll/angle_max, self.pitch/angle_max, self.yaw/yaw_max]
                     writer.writerow(data)
 
                 distances.append(self.distance/max_distance)

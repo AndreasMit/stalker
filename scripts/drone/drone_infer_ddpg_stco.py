@@ -16,7 +16,7 @@ from tensorflow.keras import layers
 from mavros_msgs.msg import PositionTarget
 import pylab
 from stalker.msg import PREDdata
-from BoxToLineClass import line_detector
+from DroneBoxToLineClass import line_detector
 import csv
 
 #-------------------------------- CLASS ENVIRONMENT --------------------------------#
