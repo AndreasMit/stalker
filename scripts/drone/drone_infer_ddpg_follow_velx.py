@@ -198,6 +198,7 @@ class Environment:
                     data = [ rospy.get_rostime(), self.distance_x/max_distance_x,self.distance_y/max_distance_y, self.angle/max_angle, self.x_velocity, self.y_velocity, self.z_position , self.action[0], self.action[1], self.action[2], self.roll/angle_max, self.pitch/angle_max, self.yaw/yaw_max ]
                     writer.writerow(data)
 
+                print(self.distance_x, self.distance_y)
                 distances_x.append(self.distance_x/max_distance_x)
                 distances_y.append(self.distance_y/max_distance_y)
                 angles.append(self.angle/max_angle)

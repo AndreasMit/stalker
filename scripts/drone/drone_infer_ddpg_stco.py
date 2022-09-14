@@ -250,7 +250,7 @@ if __name__=='__main__':
 
     checkpoint = 0 #checkpoint try
     ntry = 2
-    nntry = 6
+    nntry = 7
     target_actor = get_actor()
     target_actor.load_weights('src/stalker/scripts/checkpoints/st_co'+str(checkpoint)+'/try'+str(ntry)+'/ddpg_target_actor.h5')
 
