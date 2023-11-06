@@ -6,15 +6,19 @@ sudo apt update
 sudo apt upgrade
 sudo apt install git
 sudo apt install python-matplotlib python-serial python-wxgtk3.0 python-wxtools python-lxml python-scipy python-opencv ccache gawk python-pip python-pexpect
-sudo pip install future pymavlink MAVProxy
 sudo apt install curl 
 ```
+if some of the above packages are no longer supported (or installing on Ubuntu 20.04) try:
+```
+sudo apt install python3-matplotlib python3-serial python-wxgtk3.0 python-wxtools python-lxml python3-scipy python3-opencv ccache gawk python3-pip python-pexpect
+```
+
 ## install ardupilot:
 ```
 cd ~
 git clone https://github.com/ArduPilot/ardupilot.git
 cd ardupilot
-git checkout Copter-4.2
+git checkout Copter-4.4
 git submodule update --init --recursive
 ```
 ## update ~/.bashrc #1:
@@ -25,6 +29,14 @@ export PATH=/usr/lib/ccache:$PATH
 ```
 ```
 source ~/.bashrc
+```
+## install python2 and pip for python2
+SITL depends on python2 so we have to install it, also with some packages
+```
+sudo apt install python2
+curl https://bootstrap.pypa.io/pip/2.7/get-pip.py --output get-pip.py
+sudo python2 get-pip.py
+sudo pip install future pymavlink MAVProxy
 ```
 ## build vehicle simulator (sitl):
 ```
@@ -37,7 +49,13 @@ sim_vehicle.py -w
 sudo sh -c 'echo "deb http://packages.osrfoundation.org/gazebo/ubuntu-stable `lsb_release -cs` main" > /etc/apt/sources.list.d/gazebo-stable.list'
 wget http://packages.osrfoundation.org/gazebo.key -O - | sudo apt-key add -
 sudo apt update
+```
+```
 sudo apt install gazebo9 libgazebo9-dev
+```
+or for Ubuntu 20.04
+```
+sudo apt install gazebo11 libgazebo11-dev
 ```
 ## update ~/.bashrc #2:
 ```
@@ -51,16 +69,30 @@ or
 sudo sh -c 'echo "deb http://packages.ros.org/ros/ubuntu $(lsb_release -sc) main" > /etc/apt/sources.list.d/ros-latest.list'
 curl -s https://raw.githubusercontent.com/ros/rosdistro/master/ros.asc | sudo apt-key add -
 sudo apt update
+```
+```
 sudo apt install ros-melodic-desktop-full
+```
+or for Ubuntu 20.04:
+```
+sudo apt install ros-noetic-desktop-full
 ```
 ## update ~/.bashrc #3:
 ```
 echo "source /opt/ros/melodic/setup.bash" >> ~/.bashrc
 source ~/.bashrc
 ```
+```
+echo "source /opt/ros/noetic/setup.bash" >> ~/.bashrc
+source ~/.bashrc
+```
 ## install dependencies #2:
 ```
 sudo apt install python-rosdep python-rosinstall python-rosinstall-generator python-wstool build-essential
+```
+or (Ubuntu 20.04)
+```
+sudo apt install python3-rosdep python3-rosinstall python3-rosinstall-generator python3-wstool build-essential
 ```
 ## initialize rosdep:
 ```
@@ -71,6 +103,11 @@ rosdep update
 ```
 sudo apt-get install python-wstool python-rosinstall-generator python-catkin-tools
 sudo apt install ros-melodic-gazebo-ros ros-melodic-gazebo-plugins
+```
+or (Ubuntu 20.04)
+```
+sudo apt-get install python3-wstool python3-rosinstall-generator python3-catkin-tools
+sudo apt install ros-noetic-gazebo-ros ros-noetic-gazebo-plugins
 ```
 ## create catkin workspace:
 ```
@@ -168,7 +205,10 @@ This command installs all the packages that the packages in your catkin workspac
 ```
 rosdep install --from-paths src --ignore-src -r -y :
 ```
-
+## install RVIZ
+```
+sudo apt -y install rviz
+```
 ## YOLO installation
 ```
 sudo apt install nvidia-cuda-toolkit
